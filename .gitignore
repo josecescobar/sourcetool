@@ -36,3 +36,4 @@ pnpm-debug.log*
 
 # Extension builds
 apps/extension/dist/
+.vercel
