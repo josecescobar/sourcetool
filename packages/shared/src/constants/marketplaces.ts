@@ -1,0 +1,65 @@
+import type { MarketplaceConfig } from '../types/marketplace.types';
+import type { Marketplace } from '../types/product.types';
+
+export const MARKETPLACES: Record<Marketplace, MarketplaceConfig> = {
+  AMAZON_US: {
+    id: 'ATVPDKIKX0DER',
+    name: 'Amazon US',
+    domain: 'amazon.com',
+    currency: 'USD',
+    currencySymbol: '$',
+    country: 'US',
+    amazonMarketplaceId: 'ATVPDKIKX0DER',
+  },
+  AMAZON_CA: {
+    id: 'A2EUQ1WTGCTBG2',
+    name: 'Amazon Canada',
+    domain: 'amazon.ca',
+    currency: 'CAD',
+    currencySymbol: 'C$',
+    country: 'CA',
+    amazonMarketplaceId: 'A2EUQ1WTGCTBG2',
+  },
+  AMAZON_UK: {
+    id: 'A1F83G8C2ARO7P',
+    name: 'Amazon UK',
+    domain: 'amazon.co.uk',
+    currency: 'GBP',
+    currencySymbol: '£',
+    country: 'GB',
+    amazonMarketplaceId: 'A1F83G8C2ARO7P',
+  },
+  AMAZON_DE: {
+    id: 'A1PA6795UKMFR9',
+    name: 'Amazon Germany',
+    domain: 'amazon.de',
+    currency: 'EUR',
+    currencySymbol: '€',
+    country: 'DE',
+    amazonMarketplaceId: 'A1PA6795UKMFR9',
+  },
+  WALMART_US: {
+    id: 'WALMART_US',
+    name: 'Walmart US',
+    domain: 'walmart.com',
+    currency: 'USD',
+    currencySymbol: '$',
+    country: 'US',
+  },
+  EBAY_US: {
+    id: 'EBAY_US',
+    name: 'eBay US',
+    domain: 'ebay.com',
+    currency: 'USD',
+    currencySymbol: '$',
+    country: 'US',
+  },
+  EBAY_UK: {
+    id: 'EBAY_UK',
+    name: 'eBay UK',
+    domain: 'ebay.co.uk',
+    currency: 'GBP',
+    currencySymbol: '£',
+    country: 'GB',
+  },
+};

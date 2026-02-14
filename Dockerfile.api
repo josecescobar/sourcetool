@@ -1,0 +1,38 @@
+FROM node:20-alpine AS base
+
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+WORKDIR /app
+
+# Copy workspace config
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY turbo.json ./
+
+# Copy package.json files for all workspaces
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY packages/ai/package.json ./packages/ai/
+COPY tooling/tsconfig/package.json ./tooling/tsconfig/
+COPY tooling/eslint-config/package.json ./tooling/eslint-config/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy source
+COPY tooling ./tooling
+COPY packages ./packages
+COPY apps/api ./apps/api
+
+# Generate Prisma client
+RUN cd packages/db && npx prisma generate || true
+
+# Build
+RUN pnpm --filter @sourcetool/shared build || true
+RUN pnpm --filter @sourcetool/db build || true
+RUN pnpm --filter @sourcetool/ai build || true
+RUN pnpm --filter @sourcetool/api build || true
+
+EXPOSE 3001
+
+CMD ["node", "apps/api/dist/main.js"]

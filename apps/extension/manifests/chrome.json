@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "SourceTool",
+  "version": "0.1.0",
+  "description": "AI-native product sourcing for Amazon FBA, Walmart & eBay resellers",
+  "permissions": [
+    "activeTab",
+    "sidePanel",
+    "storage",
+    "contextMenus",
+    "identity"
+  ],
+  "host_permissions": [
+    "*://*.amazon.com/*",
+    "*://*.amazon.ca/*",
+    "*://*.amazon.co.uk/*",
+    "*://*.amazon.de/*",
+    "*://*.walmart.com/*",
+    "*://*.ebay.com/*",
+    "*://*.ebay.co.uk/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/dp/*",
+        "*://*.amazon.com/*/dp/*",
+        "*://*.amazon.com/gp/product/*",
+        "*://*.amazon.ca/dp/*",
+        "*://*.amazon.ca/*/dp/*",
+        "*://*.amazon.co.uk/dp/*",
+        "*://*.amazon.co.uk/*/dp/*",
+        "*://*.amazon.de/dp/*",
+        "*://*.amazon.de/*/dp/*",
+        "*://*.walmart.com/ip/*",
+        "*://*.ebay.com/itm/*",
+        "*://*.ebay.co.uk/itm/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SourceTool"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "assets/icon-16.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  }
+}

@@ -1,0 +1,17 @@
+export const EBAY_FINAL_VALUE_FEES: Record<string, { percentage: number }> = {
+  'Books, DVDs & Movies': { percentage: 14.6 },
+  'Business & Industrial': { percentage: 13.25 },
+  'Clothing, Shoes & Accessories': { percentage: 13.25 },
+  'Collectibles': { percentage: 13.25 },
+  'Consumer Electronics': { percentage: 13.25 },
+  'Crafts': { percentage: 13.25 },
+  'Health & Beauty': { percentage: 13.25 },
+  'Home & Garden': { percentage: 13.25 },
+  'Jewelry & Watches': { percentage: 15 },
+  'Musical Instruments': { percentage: 13.25 },
+  'Pet Supplies': { percentage: 13.25 },
+  'Sporting Goods': { percentage: 13.25 },
+  'Toys & Hobbies': { percentage: 13.25 },
+  'Video Games & Consoles': { percentage: 13.25 },
+  'Default': { percentage: 13.25 },
+};

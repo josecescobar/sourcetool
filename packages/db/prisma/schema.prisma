@@ -1,0 +1,434 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum Marketplace {
+  AMAZON_US
+  AMAZON_CA
+  AMAZON_UK
+  AMAZON_DE
+  WALMART_US
+  EBAY_US
+  EBAY_UK
+}
+
+enum FulfillmentType {
+  FBA
+  FBM
+  WFS
+  WFM
+  EBAY_MANAGED
+  EBAY_SELLER
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  VA
+  VIEWER
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum BulkScanStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AlertType {
+  IP_COMPLAINT
+  HAZMAT
+  RESTRICTED
+  MELTABLE
+  OVERSIZED
+  PRIVATE_LABEL
+}
+
+enum DealVerdict {
+  STRONG_BUY
+  BUY
+  HOLD
+  PASS
+  STRONG_PASS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  INCOMPLETE
+}
+
+// ─── Models ──────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  avatarUrl    String?
+  googleId     String?  @unique
+  appleId      String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teamMembers   TeamMember[]
+  analyses      ProductAnalysis[]
+  bulkScans     BulkScan[]
+  savedSearches SavedSearch[]
+
+  @@map("users")
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  members        TeamMember[]
+  subscription   Subscription?
+  usageRecords   UsageRecord[]
+  analyses       ProductAnalysis[]
+  bulkScans      BulkScan[]
+  sourcedProducts SourcedProduct[]
+  buyLists       BuyList[]
+  savedSearches  SavedSearch[]
+  apiKeys        ApiKey[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String    @id @default(cuid())
+  teamId    String
+  userId    String
+  role      TeamRole  @default(VA)
+  invitedAt DateTime  @default(now())
+  joinedAt  DateTime?
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  teamId               String             @unique
+  planTier             PlanTier           @default(FREE)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  teamId         String
+  date           DateTime @db.Date
+  lookupCount    Int      @default(0)
+  bulkScanCount  Int      @default(0)
+  aiVerdictCount Int      @default(0)
+  exportCount    Int      @default(0)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, date])
+  @@map("usage_records")
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  asin       String?  @unique
+  upc        String?
+  ean        String?
+  title      String
+  brand      String?
+  category   String?
+  imageUrl   String?
+  dimensions Json?    // { lengthInches, widthInches, heightInches, weightPounds }
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  listings       MarketplaceListing[]
+  analyses       ProductAnalysis[]
+  priceHistory   PriceHistory[]
+  bsrHistory     BsrHistory[]
+  offerHistory   OfferHistory[]
+  alerts         Alert[]
+  sourcedProducts SourcedProduct[]
+  buyListItems   BuyListItem[]
+  bulkScanRows   BulkScanRow[]
+
+  @@index([upc])
+  @@index([ean])
+  @@map("products")
+}
+
+model MarketplaceListing {
+  id              String      @id @default(cuid())
+  productId       String
+  marketplace     Marketplace
+  marketplaceId   String
+  currentPrice    Float?
+  buyBoxPrice     Float?
+  bsr             Int?
+  bsrCategory     String?
+  offerCount      Int?
+  fbaOfferCount   Int?
+  isAmazonSelling Boolean?
+  rating          Float?
+  reviewCount     Int?
+  lastFetchedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, marketplace])
+  @@map("marketplace_listings")
+}
+
+model ProductAnalysis {
+  id              String          @id @default(cuid())
+  productId       String
+  teamId          String
+  userId          String
+  marketplace     Marketplace
+  fulfillmentType FulfillmentType
+  buyPrice        Float
+  sellPrice       Float
+  referralFee     Float
+  fulfillmentFee  Float
+  storageFee      Float           @default(0)
+  prepFee         Float           @default(0)
+  inboundShipping Float           @default(0)
+  totalFees       Float
+  profit          Float
+  roi             Float
+  margin          Float
+  breakeven       Float
+  aiScore         Int?
+  aiVerdict       DealVerdict?
+  aiReasoning     String?
+  createdAt       DateTime        @default(now())
+
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buyListItems BuyListItem[]
+  bulkScanRows BulkScanRow[]
+
+  @@index([teamId, createdAt(sort: Desc)])
+  @@map("product_analyses")
+}
+
+model PriceHistory {
+  id          String      @id @default(cuid())
+  productId   String
+  marketplace Marketplace
+  price       Float
+  buyBoxPrice Float?
+  recordedAt  DateTime
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, marketplace, recordedAt])
+  @@map("price_history")
+}
+
+model BsrHistory {
+  id          String      @id @default(cuid())
+  productId   String
+  marketplace Marketplace
+  bsr         Int
+  category    String
+  recordedAt  DateTime
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, marketplace, recordedAt])
+  @@map("bsr_history")
+}
+
+model OfferHistory {
+  id               String      @id @default(cuid())
+  productId        String
+  marketplace      Marketplace
+  totalOffers      Int
+  fbaOffers        Int?
+  isAmazonSelling  Boolean?
+  lowestFbaPrice   Float?
+  lowestFbmPrice   Float?
+  recordedAt       DateTime
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, marketplace, recordedAt])
+  @@map("offer_history")
+}
+
+model BulkScan {
+  id              String         @id @default(cuid())
+  teamId          String
+  userId          String
+  fileName        String
+  totalRows       Int
+  processedRows   Int            @default(0)
+  successRows     Int            @default(0)
+  failedRows      Int            @default(0)
+  status          BulkScanStatus @default(PENDING)
+  marketplace     Marketplace
+  fulfillmentType FulfillmentType
+  defaultBuyPrice Float?
+  results         Json?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+
+  team Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rows BulkScanRow[]
+
+  @@index([teamId, createdAt(sort: Desc)])
+  @@map("bulk_scans")
+}
+
+model BulkScanRow {
+  id          String  @id @default(cuid())
+  bulkScanId  String
+  rowNumber   Int
+  identifier  String
+  status      String  @default("PENDING") // PENDING, SUCCESS, FAILED
+  productId   String?
+  analysisId  String?
+  error       String?
+  processedAt DateTime?
+
+  bulkScan BulkScan         @relation(fields: [bulkScanId], references: [id], onDelete: Cascade)
+  product  Product?         @relation(fields: [productId], references: [id])
+  analysis ProductAnalysis? @relation(fields: [analysisId], references: [id])
+
+  @@map("bulk_scan_rows")
+}
+
+model SourcedProduct {
+  id            String    @id @default(cuid())
+  teamId        String
+  productId     String
+  marketplace   Marketplace
+  purchaseDate  DateTime
+  purchasePrice Float
+  quantity      Int
+  listingDate   DateTime?
+  listingPrice  Float?
+  soldDate      DateTime?
+  soldPrice     Float?
+  actualFees    Float?
+  actualProfit  Float?
+  actualRoi     Float?
+  notes         String?
+
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, purchaseDate(sort: Desc)])
+  @@map("sourced_products")
+}
+
+model Alert {
+  id          String    @id @default(cuid())
+  productId   String
+  alertType   AlertType
+  severity    Int       @default(1) // 1-5
+  title       String
+  description String?
+  source      String?
+  sourceUrl   String?
+  reportedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, alertType])
+  @@map("alerts")
+}
+
+model BuyList {
+  id        String   @id @default(cuid())
+  teamId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  team  Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  items BuyListItem[]
+
+  @@map("buy_lists")
+}
+
+model BuyListItem {
+  id         String   @id @default(cuid())
+  buyListId  String
+  productId  String
+  analysisId String?
+  addedAt    DateTime @default(now())
+  notes      String?
+
+  buyList  BuyList          @relation(fields: [buyListId], references: [id], onDelete: Cascade)
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  analysis ProductAnalysis? @relation(fields: [analysisId], references: [id])
+
+  @@map("buy_list_items")
+}
+
+model SavedSearch {
+  id          String      @id @default(cuid())
+  teamId      String
+  userId      String
+  query       String
+  marketplace Marketplace?
+  filters     Json?
+  createdAt   DateTime    @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_searches")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  teamId     String
+  keyHash    String    @unique
+  name       String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}

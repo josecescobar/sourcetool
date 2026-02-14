@@ -1,0 +1,35 @@
+{
+  "name": "@sourcetool/extension",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "webpack --watch --config webpack.config.ts --env target=chrome",
+    "build:chrome": "webpack --config webpack.config.ts --env target=chrome --mode production",
+    "build:firefox": "webpack --config webpack.config.ts --env target=firefox --mode production",
+    "build:all": "pnpm build:chrome && pnpm build:firefox",
+    "build": "pnpm build:chrome",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sourcetool/shared": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@sourcetool/tsconfig": "workspace:*",
+    "@types/chrome": "^0.0.280",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "copy-webpack-plugin": "^12.0.0",
+    "css-loader": "^7.0.0",
+    "html-webpack-plugin": "^5.6.0",
+    "mini-css-extract-plugin": "^2.9.0",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.7.0",
+    "webpack": "^5.97.0",
+    "webpack-cli": "^6.0.0"
+  }
+}
