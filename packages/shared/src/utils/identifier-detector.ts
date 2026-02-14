@@ -37,6 +37,14 @@ export function detectIdentifier(input: string): DetectedIdentifier {
     return { type: 'EAN', value: trimmed };
   }
 
+  // Fallback: treat 12/13-digit numbers as UPC/EAN even if check digit fails
+  if (/^\d{12}$/.test(trimmed)) {
+    return { type: 'UPC', value: trimmed };
+  }
+  if (/^\d{13}$/.test(trimmed)) {
+    return { type: 'EAN', value: trimmed };
+  }
+
   return { type: 'UNKNOWN', value: trimmed };
 }
 
