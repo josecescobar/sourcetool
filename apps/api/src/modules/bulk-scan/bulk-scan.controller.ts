@@ -10,11 +10,17 @@ export class BulkScanController {
 
   @Post()
   async create(
-    @Body() body: { fileName: string; totalRows: number; marketplace: string; fulfillmentType: string; defaultBuyPrice?: number },
+    @Body() body: {
+      fileName: string;
+      marketplace: string;
+      fulfillmentType: string;
+      defaultBuyPrice?: number;
+      rows: Array<{ identifier: string; buyPrice?: number }>;
+    },
     @CurrentUser('id') userId: string,
     @CurrentUser('teamId') teamId: string,
   ): Promise<any> {
-    return { success: true, data: await this.bulkScanService.create(teamId, userId, body.fileName, body.totalRows, body.marketplace, body.fulfillmentType, body.defaultBuyPrice) };
+    return { success: true, data: await this.bulkScanService.create(teamId, userId, body) };
   }
 
   @Get(':id')

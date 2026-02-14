@@ -328,6 +328,7 @@ model BulkScanRow {
   bulkScanId  String
   rowNumber   Int
   identifier  String
+  buyPrice    Float?
   status      String  @default("PENDING") // PENDING, SUCCESS, FAILED
   productId   String?
   analysisId  String?
