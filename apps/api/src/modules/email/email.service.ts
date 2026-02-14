@@ -4,17 +4,21 @@ import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
-  private resend: Resend;
+  private resend: Resend | null = null;
   private from: string;
   private webUrl: string;
 
   constructor(private configService: ConfigService) {
-    this.resend = new Resend(this.configService.get('RESEND_API_KEY'));
+    const apiKey = this.configService.get('RESEND_API_KEY');
+    if (apiKey) {
+      this.resend = new Resend(apiKey);
+    }
     this.from = this.configService.get('EMAIL_FROM', 'SourceTool <noreply@sourcetool.io>');
     this.webUrl = this.configService.get('WEB_URL', 'http://localhost:3000');
   }
 
   async sendVerificationEmail(email: string, token: string) {
+    if (!this.resend) return;
     const url = `${this.webUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
     await this.resend.emails.send({
@@ -32,6 +36,7 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, token: string) {
+    if (!this.resend) return;
     const url = `${this.webUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
     await this.resend.emails.send({
