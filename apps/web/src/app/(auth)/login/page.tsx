@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
+import { GoogleSignInButton } from '@/components/google-sign-in-button';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -59,6 +60,17 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-muted-foreground">Or continue with</span>
+          </div>
+        </div>
+
+        <GoogleSignInButton />
 
         <div className="text-center text-sm">
           <Link href="/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
