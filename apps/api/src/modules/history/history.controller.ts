@@ -13,7 +13,7 @@ export class HistoryController {
     @Param('productId') productId: string,
     @Query('marketplace') marketplace?: Marketplace,
     @Query('days') days?: string,
-  ) {
+  ): Promise<any> {
     return { success: true, data: await this.historyService.getPriceHistory(productId, marketplace, Number(days) || 90) };
   }
 
@@ -22,7 +22,7 @@ export class HistoryController {
     @Param('productId') productId: string,
     @Query('marketplace') marketplace?: Marketplace,
     @Query('days') days?: string,
-  ) {
+  ): Promise<any> {
     return { success: true, data: await this.historyService.getBsrHistory(productId, marketplace, Number(days) || 90) };
   }
 
@@ -31,7 +31,7 @@ export class HistoryController {
     @Param('productId') productId: string,
     @Query('marketplace') marketplace?: Marketplace,
     @Query('days') days?: string,
-  ) {
+  ): Promise<any> {
     return { success: true, data: await this.historyService.getOfferHistory(productId, marketplace, Number(days) || 90) };
   }
 }

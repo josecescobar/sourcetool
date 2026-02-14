@@ -4,7 +4,7 @@ import type { TeamRole } from '@sourcetool/shared';
 
 @Injectable()
 export class TeamsService {
-  async create(name: string, ownerId: string) {
+  async create(name: string, ownerId: string): Promise<any> {
     return prisma.team.create({
       data: {
         name,
@@ -20,7 +20,7 @@ export class TeamsService {
     });
   }
 
-  async invite(teamId: string, email: string, role: TeamRole) {
+  async invite(teamId: string, email: string, role: TeamRole): Promise<any> {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -29,14 +29,14 @@ export class TeamsService {
     });
   }
 
-  async updateMemberRole(teamId: string, memberId: string, role: TeamRole) {
+  async updateMemberRole(teamId: string, memberId: string, role: TeamRole): Promise<any> {
     return prisma.teamMember.update({
       where: { id: memberId },
       data: { role: role as any },
     });
   }
 
-  async removeMember(teamId: string, memberId: string) {
+  async removeMember(teamId: string, memberId: string): Promise<any> {
     const member = await prisma.teamMember.findUnique({ where: { id: memberId } });
     if (!member) throw new NotFoundException('Member not found');
     if (member.role === 'OWNER') throw new ForbiddenException('Cannot remove team owner');

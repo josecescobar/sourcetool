@@ -12,7 +12,7 @@ export class WalmartWfsCalculator implements IMarketplaceCalculator {
     inboundShipping?: number;
   }): FeeBreakdown {
     const categoryKey = input.category || 'Default';
-    const referralConfig = WALMART_REFERRAL_FEES[categoryKey] || WALMART_REFERRAL_FEES['Default'];
+    const referralConfig = WALMART_REFERRAL_FEES[categoryKey] ?? WALMART_REFERRAL_FEES['Default']!;
     const referralFeePercent = referralConfig.percentage;
     const referralFee = input.sellPrice * (referralFeePercent / 100);
 

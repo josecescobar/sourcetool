@@ -30,7 +30,7 @@ export class BillingController {
 
   @UseGuards(JwtAuthGuard)
   @Get('subscription')
-  async subscription(@CurrentUser('teamId') teamId: string) {
+  async subscription(@CurrentUser('teamId') teamId: string): Promise<any> {
     return { success: true, data: await this.billingService.getSubscription(teamId) };
   }
 }

@@ -11,7 +11,7 @@ export class BillingService {
 
   constructor(private configService: ConfigService) {
     const key = this.configService.get('STRIPE_SECRET_KEY');
-    this.stripe = new Stripe(key || 'sk_test_placeholder', { apiVersion: '2024-12-18.acacia' });
+    this.stripe = new Stripe(key || 'sk_test_placeholder', { apiVersion: '2025-02-24.acacia' });
   }
 
   async createCheckoutSession(teamId: string, planTier: PlanTier) {
@@ -95,7 +95,7 @@ export class BillingService {
     }
   }
 
-  async getSubscription(teamId: string) {
+  async getSubscription(teamId: string): Promise<any> {
     return prisma.subscription.findUnique({ where: { teamId } });
   }
 }

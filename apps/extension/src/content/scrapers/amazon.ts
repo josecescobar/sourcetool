@@ -148,7 +148,8 @@ export class AmazonScraper {
   private static getCategory(): string | null {
     const breadcrumbs = document.querySelectorAll('#wayfinding-breadcrumbs_feature_div .a-link-normal');
     if (breadcrumbs.length > 0) {
-      return breadcrumbs[breadcrumbs.length - 1].textContent?.trim() || null;
+      const last = breadcrumbs[breadcrumbs.length - 1];
+      return last?.textContent?.trim() || null;
     }
     return null;
   }

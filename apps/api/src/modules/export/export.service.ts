@@ -3,7 +3,7 @@ import { prisma } from '@sourcetool/db';
 
 @Injectable()
 export class ExportService {
-  async exportCsv(analysisIds: string[]) {
+  async exportCsv(analysisIds: string[]): Promise<any> {
     const analyses = await prisma.productAnalysis.findMany({
       where: { id: { in: analysisIds } },
       include: { product: true },

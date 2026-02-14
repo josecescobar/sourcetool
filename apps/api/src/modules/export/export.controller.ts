@@ -8,7 +8,7 @@ export class ExportController {
   constructor(private exportService: ExportService) {}
 
   @Post('csv')
-  async csv(@Body() body: { analysisIds: string[] }) {
+  async csv(@Body() body: { analysisIds: string[] }): Promise<any> {
     return { success: true, data: await this.exportService.exportCsv(body.analysisIds) };
   }
 

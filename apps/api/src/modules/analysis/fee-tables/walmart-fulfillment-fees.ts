@@ -6,7 +6,7 @@ export function getWalmartFulfillmentFee(dimensions: {
 }): number {
   const { weightPounds } = dimensions;
   const sorted = [dimensions.lengthInches, dimensions.widthInches, dimensions.heightInches].sort((a, b) => b - a);
-  const longest = sorted[0];
+  const longest = sorted[0]!;
 
   // WFS fee structure (simplified)
   if (weightPounds <= 1 && longest <= 15) return 3.45;

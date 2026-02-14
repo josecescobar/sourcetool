@@ -8,7 +8,7 @@ export class EbayCalculator implements IMarketplaceCalculator {
     category?: string;
   }): FeeBreakdown {
     const categoryKey = input.category || 'Default';
-    const feeConfig = EBAY_FINAL_VALUE_FEES[categoryKey] || EBAY_FINAL_VALUE_FEES['Default'];
+    const feeConfig = EBAY_FINAL_VALUE_FEES[categoryKey] ?? EBAY_FINAL_VALUE_FEES['Default']!;
     const referralFeePercent = feeConfig.percentage;
     const referralFee = input.sellPrice * (referralFeePercent / 100);
 

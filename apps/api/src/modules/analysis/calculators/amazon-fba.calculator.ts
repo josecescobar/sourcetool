@@ -15,7 +15,7 @@ export class AmazonFbaCalculator implements IMarketplaceCalculator {
   }): FeeBreakdown {
     // Referral fee
     const categoryKey = input.category || 'Default';
-    const referralConfig = AMAZON_REFERRAL_FEES[categoryKey] || AMAZON_REFERRAL_FEES['Default'];
+    const referralConfig = AMAZON_REFERRAL_FEES[categoryKey] ?? AMAZON_REFERRAL_FEES['Default']!;
     const referralFeePercent = referralConfig.percentage;
     const referralFeeCalc = input.sellPrice * (referralFeePercent / 100);
     const referralFee = Math.max(referralFeeCalc, referralConfig.minimumFee);

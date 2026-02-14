@@ -14,7 +14,7 @@ export class AnalysisController {
     @Body() input: CalculateInput,
     @CurrentUser('id') userId: string,
     @CurrentUser('teamId') teamId: string,
-  ) {
+  ): Promise<any> {
     return { success: true, data: await this.analysisService.calculate(input, userId, teamId) };
   }
 
@@ -33,7 +33,7 @@ export class AnalysisController {
     @Query('teamId') teamId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-  ) {
+  ): Promise<any> {
     return { success: true, ...await this.analysisService.getHistory(teamId, Number(page) || 1, Number(limit) || 20) };
   }
 }

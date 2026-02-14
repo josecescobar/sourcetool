@@ -7,7 +7,7 @@ import type { CalculateInput, BreakevenInput } from '@sourcetool/shared';
 export class AnalysisService {
   constructor(private engine: ProfitCalculatorEngine) {}
 
-  async calculate(input: CalculateInput, userId: string, teamId: string) {
+  async calculate(input: CalculateInput, userId: string, teamId: string): Promise<any> {
     const result = this.engine.calculate(input);
 
     // Save analysis to DB
@@ -44,7 +44,7 @@ export class AnalysisService {
     return this.engine.scenario(input);
   }
 
-  async getHistory(teamId: string, page = 1, limit = 20) {
+  async getHistory(teamId: string, page = 1, limit = 20): Promise<any> {
     const skip = (page - 1) * limit;
     const [analyses, total] = await Promise.all([
       prisma.productAnalysis.findMany({

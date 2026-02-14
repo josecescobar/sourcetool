@@ -100,7 +100,7 @@ export class AuthService {
     return this.generateTokens(user.id, email, membership?.teamId);
   }
 
-  async getProfile(userId: string) {
+  async getProfile(userId: string): Promise<any> {
     return prisma.user.findUnique({
       where: { id: userId },
       select: {

@@ -12,7 +12,7 @@ export function parseMathExpression(expression: string): MathToken[] {
 
   while ((match = regex.exec(expression)) !== null) {
     const operator = match[1] as '+' | '-';
-    const value = parseFloat(match[2]);
+    const value = parseFloat(match[2] ?? '');
     const isPercent = match[3] === '%';
 
     if (isNaN(value)) continue;

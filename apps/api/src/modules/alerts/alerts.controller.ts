@@ -8,17 +8,17 @@ export class AlertsController {
   constructor(private alertsService: AlertsService) {}
 
   @Get('check/:identifier')
-  async check(@Param('identifier') identifier: string) {
+  async check(@Param('identifier') identifier: string): Promise<any> {
     return { success: true, data: await this.alertsService.checkByIdentifier(identifier) };
   }
 
   @Post('check-batch')
-  async checkBatch(@Body() body: { identifiers: string[] }) {
+  async checkBatch(@Body() body: { identifiers: string[] }): Promise<any> {
     return { success: true, data: await this.alertsService.checkBatch(body.identifiers) };
   }
 
   @Get('product/:productId')
-  async getByProduct(@Param('productId') productId: string) {
+  async getByProduct(@Param('productId') productId: string): Promise<any> {
     return { success: true, data: await this.alertsService.getByProductId(productId) };
   }
 }

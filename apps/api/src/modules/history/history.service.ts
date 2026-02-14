@@ -4,7 +4,7 @@ import type { Marketplace } from '@sourcetool/shared';
 
 @Injectable()
 export class HistoryService {
-  async getPriceHistory(productId: string, marketplace?: Marketplace, days = 90) {
+  async getPriceHistory(productId: string, marketplace?: Marketplace, days = 90): Promise<any> {
     const since = new Date();
     since.setDate(since.getDate() - days);
     return prisma.priceHistory.findMany({
@@ -17,7 +17,7 @@ export class HistoryService {
     });
   }
 
-  async getBsrHistory(productId: string, marketplace?: Marketplace, days = 90) {
+  async getBsrHistory(productId: string, marketplace?: Marketplace, days = 90): Promise<any> {
     const since = new Date();
     since.setDate(since.getDate() - days);
     return prisma.bsrHistory.findMany({
@@ -30,7 +30,7 @@ export class HistoryService {
     });
   }
 
-  async getOfferHistory(productId: string, marketplace?: Marketplace, days = 90) {
+  async getOfferHistory(productId: string, marketplace?: Marketplace, days = 90): Promise<any> {
     const since = new Date();
     since.setDate(since.getDate() - days);
     return prisma.offerHistory.findMany({

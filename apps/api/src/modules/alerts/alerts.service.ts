@@ -4,7 +4,7 @@ import { detectIdentifier } from '@sourcetool/shared';
 
 @Injectable()
 export class AlertsService {
-  async checkByIdentifier(identifier: string) {
+  async checkByIdentifier(identifier: string): Promise<any> {
     const detected = detectIdentifier(identifier);
     if (detected.type === 'ASIN') {
       const product = await prisma.product.findUnique({ where: { asin: detected.value } });
@@ -23,7 +23,7 @@ export class AlertsService {
     return results;
   }
 
-  async getByProductId(productId: string) {
+  async getByProductId(productId: string): Promise<any> {
     return prisma.alert.findMany({ where: { productId }, orderBy: { createdAt: 'desc' } });
   }
 }

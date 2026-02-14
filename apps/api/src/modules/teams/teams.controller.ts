@@ -10,17 +10,17 @@ export class TeamsController {
   constructor(private teamsService: TeamsService) {}
 
   @Post()
-  async create(@Body() body: { name: string }, @CurrentUser('id') userId: string) {
+  async create(@Body() body: { name: string }, @CurrentUser('id') userId: string): Promise<any> {
     return { success: true, data: await this.teamsService.create(body.name, userId) };
   }
 
   @Post(':id/invite')
-  async invite(@Param('id') teamId: string, @Body() body: { email: string; role: TeamRole }) {
+  async invite(@Param('id') teamId: string, @Body() body: { email: string; role: TeamRole }): Promise<any> {
     return { success: true, data: await this.teamsService.invite(teamId, body.email, body.role) };
   }
 
   @Patch(':id/members/:memberId')
-  async updateRole(@Param('id') teamId: string, @Param('memberId') memberId: string, @Body() body: { role: TeamRole }) {
+  async updateRole(@Param('id') teamId: string, @Param('memberId') memberId: string, @Body() body: { role: TeamRole }): Promise<any> {
     return { success: true, data: await this.teamsService.updateMemberRole(teamId, memberId, body.role) };
   }
 

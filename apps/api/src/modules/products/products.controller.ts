@@ -12,22 +12,22 @@ export class ProductsController {
   async lookup(
     @Query('identifier') identifier: string,
     @Query('marketplace') marketplace?: Marketplace,
-  ) {
+  ): Promise<any> {
     return { success: true, data: await this.productsService.lookup(identifier, marketplace) };
   }
 
   @Get(':id')
-  async getById(@Param('id') id: string) {
+  async getById(@Param('id') id: string): Promise<any> {
     return { success: true, data: await this.productsService.getById(id) };
   }
 
   @Get(':id/listings')
-  async getListings(@Param('id') id: string) {
+  async getListings(@Param('id') id: string): Promise<any> {
     return { success: true, data: await this.productsService.getListings(id) };
   }
 
   @Post('cross-match')
-  async crossMatch(@Body() body: { identifier: string }) {
+  async crossMatch(@Body() body: { identifier: string }): Promise<any> {
     return { success: true, data: await this.productsService.crossMatch(body.identifier) };
   }
 }

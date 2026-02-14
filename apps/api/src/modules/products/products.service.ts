@@ -5,7 +5,7 @@ import type { Marketplace } from '@sourcetool/shared';
 
 @Injectable()
 export class ProductsService {
-  async lookup(identifier: string, marketplace?: Marketplace) {
+  async lookup(identifier: string, marketplace?: Marketplace): Promise<any> {
     const detected = detectIdentifier(identifier);
 
     let product;
@@ -42,7 +42,7 @@ export class ProductsService {
     return product;
   }
 
-  async getById(id: string) {
+  async getById(id: string): Promise<any> {
     const product = await prisma.product.findUnique({
       where: { id },
       include: { listings: true, alerts: true },
@@ -51,13 +51,13 @@ export class ProductsService {
     return product;
   }
 
-  async getListings(id: string) {
+  async getListings(id: string): Promise<any> {
     return prisma.marketplaceListing.findMany({
       where: { productId: id },
     });
   }
 
-  async crossMatch(identifier: string) {
+  async crossMatch(identifier: string): Promise<any> {
     const detected = detectIdentifier(identifier);
     // Find the product
     let product;

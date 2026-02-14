@@ -26,7 +26,9 @@ export function getAmazonFulfillmentFee(dimensions: {
 }): number {
   const { lengthInches, widthInches, heightInches, weightPounds } = dimensions;
   const sorted = [lengthInches, widthInches, heightInches].sort((a, b) => b - a);
-  const [longest, median, shortest] = sorted;
+  const longest = sorted[0]!;
+  const median = sorted[1]!;
+  const shortest = sorted[2]!;
 
   // Dimensional weight: (L x W x H) / 139
   const dimWeight = (longest * median * shortest) / 139;
@@ -43,7 +45,7 @@ export function getAmazonFulfillmentFee(dimensions: {
   }
 
   // Special oversize fallback
-  const specialTier = SIZE_TIERS[SIZE_TIERS.length - 1];
+  const specialTier = SIZE_TIERS[SIZE_TIERS.length - 1]!;
   const overWeight = Math.max(0, billableWeight - specialTier.firstWeightLb);
   return specialTier.baseFee + Math.ceil(overWeight) * specialTier.perLbOverFirst;
 }
