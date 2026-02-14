@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+import { EmailVerificationBanner } from '@/components/email-verification-banner';
 
 const navItems = [
   { href: '/products', label: 'Products', icon: Search },
@@ -24,7 +26,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const token = localStorage.getItem('accessToken');
     if (!token) {
       router.push('/login');
+      return;
     }
+
+    apiClient.get('/auth/me').then((data) => {
+      if (data.success) {
+        setUser(data.data);
+      }
+    }).catch(() => {});
   }, [router]);
 
   const handleLogout = () => {
@@ -69,6 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8">
+        {user && !user.emailVerified && !user.googleId && <EmailVerificationBanner />}
         {children}
       </main>
     </div>

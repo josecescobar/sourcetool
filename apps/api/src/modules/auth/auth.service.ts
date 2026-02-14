@@ -1,15 +1,25 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { OAuth2Client } from 'google-auth-library';
 import * as bcrypt from 'bcrypt';
 import { prisma } from '@sourcetool/db';
+import { EmailService } from '../email/email.service';
+import { generateToken, hashToken } from './utils/token.util';
 
 @Injectable()
 export class AuthService {
+  private googleClient: OAuth2Client;
+
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+    private emailService: EmailService,
+  ) {
+    this.googleClient = new OAuth2Client(
+      this.configService.get('GOOGLE_CLIENT_ID'),
+    );
+  }
 
   async register(email: string, password: string, name?: string) {
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -33,6 +43,9 @@ export class AuthService {
         },
       },
     });
+
+    // Fire-and-forget verification email
+    this.sendVerificationEmail(email).catch(() => {});
 
     return this.generateTokens(user.id, email, team.id);
   }
@@ -63,7 +76,24 @@ export class AuthService {
     }
   }
 
-  async googleAuth(googleId: string, email: string, name?: string, avatarUrl?: string) {
+  async googleAuth(credential: string) {
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken: credential,
+      audience: this.configService.get('GOOGLE_CLIENT_ID'),
+    }).catch(() => {
+      throw new UnauthorizedException('Invalid Google credential');
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new UnauthorizedException('Invalid Google credential');
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email;
+    const name = payload.name;
+    const avatarUrl = payload.picture;
+
     let user = await prisma.user.findUnique({ where: { googleId } });
 
     if (!user) {
@@ -71,11 +101,11 @@ export class AuthService {
       if (user) {
         user = await prisma.user.update({
           where: { id: user.id },
-          data: { googleId, avatarUrl },
+          data: { googleId, avatarUrl, emailVerified: true },
         });
       } else {
         user = await prisma.user.create({
-          data: { email, googleId, name, avatarUrl },
+          data: { email, googleId, name, avatarUrl, emailVerified: true },
         });
         await prisma.team.create({
           data: {
@@ -105,12 +135,114 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true, email: true, name: true, avatarUrl: true,
+        emailVerified: true, googleId: true,
         createdAt: true, teamMembers: {
           include: { team: { include: { subscription: true } } },
         },
       },
     });
   }
+
+  // ─── Email Verification ──────────────────────────────────────────
+
+  async sendVerificationEmail(email: string) {
+    // Delete any existing verification tokens for this email
+    await prisma.verificationToken.deleteMany({
+      where: { identifier: email, type: 'EMAIL_VERIFICATION' },
+    });
+
+    const rawToken = generateToken();
+    await prisma.verificationToken.create({
+      data: {
+        identifier: email,
+        token: hashToken(rawToken),
+        type: 'EMAIL_VERIFICATION',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      },
+    });
+
+    await this.emailService.sendVerificationEmail(email, rawToken);
+  }
+
+  async verifyEmail(email: string, token: string) {
+    const record = await prisma.verificationToken.findFirst({
+      where: {
+        identifier: email,
+        token: hashToken(token),
+        type: 'EMAIL_VERIFICATION',
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!record) throw new BadRequestException('Invalid or expired verification token');
+
+    await prisma.user.update({
+      where: { email },
+      data: { emailVerified: true },
+    });
+
+    await prisma.verificationToken.deleteMany({
+      where: { identifier: email, type: 'EMAIL_VERIFICATION' },
+    });
+
+    return { message: 'Email verified successfully' };
+  }
+
+  // ─── Password Reset ──────────────────────────────────────────────
+
+  async forgotPassword(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Always return generic message to prevent email enumeration
+    if (!user) return { message: 'If an account exists, a reset email has been sent' };
+
+    // Delete any existing reset tokens for this email
+    await prisma.verificationToken.deleteMany({
+      where: { identifier: email, type: 'PASSWORD_RESET' },
+    });
+
+    const rawToken = generateToken();
+    await prisma.verificationToken.create({
+      data: {
+        identifier: email,
+        token: hashToken(rawToken),
+        type: 'PASSWORD_RESET',
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+      },
+    });
+
+    await this.emailService.sendPasswordResetEmail(email, rawToken);
+
+    return { message: 'If an account exists, a reset email has been sent' };
+  }
+
+  async resetPassword(email: string, token: string, password: string) {
+    const record = await prisma.verificationToken.findFirst({
+      where: {
+        identifier: email,
+        token: hashToken(token),
+        type: 'PASSWORD_RESET',
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!record) throw new BadRequestException('Invalid or expired reset token');
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await prisma.user.update({
+      where: { email },
+      data: { passwordHash, emailVerified: true },
+    });
+
+    await prisma.verificationToken.deleteMany({
+      where: { identifier: email, type: 'PASSWORD_RESET' },
+    });
+
+    return { message: 'Password reset successfully' };
+  }
+
+  // ─── Private ─────────────────────────────────────────────────────
 
   private generateTokens(userId: string, email: string, teamId?: string) {
     const payload = { sub: userId, email, teamId };
