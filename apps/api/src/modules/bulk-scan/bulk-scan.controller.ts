@@ -2,15 +2,18 @@ import { Controller, Post, Get, Delete, Param, Query, Body, UseGuards } from '@n
 import { BulkScanService } from './bulk-scan.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
 import { TeamMemberGuard } from '../../common/guards/team-member.guard';
+import { PlanLimitGuard } from '../../common/guards/plan-limit.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequireRole } from '../../common/decorators/require-role.decorator';
+import { PlanAction } from '../../common/decorators/plan-action.decorator';
 
-@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard, PlanLimitGuard)
 @RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('bulk-scans')
 export class BulkScanController {
   constructor(private bulkScanService: BulkScanService) {}
 
+  @PlanAction('bulk_scan')
   @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post()
   async create(

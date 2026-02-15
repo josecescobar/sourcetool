@@ -24,7 +24,6 @@ export class BillingService {
 
     let customerId = subscription?.stripeCustomerId;
     if (!customerId) {
-      const team = await prisma.team.findUnique({ where: { id: teamId } });
       const customer = await this.stripe.customers.create({
         metadata: { teamId },
       });
@@ -43,8 +42,8 @@ export class BillingService {
         },
         quantity: 1,
       }],
-      success_url: `${this.configService.get('WEB_URL')}/settings/billing?success=true`,
-      cancel_url: `${this.configService.get('WEB_URL')}/settings/billing?canceled=true`,
+      success_url: `${this.configService.get('WEB_URL')}/settings?tab=billing&success=true`,
+      cancel_url: `${this.configService.get('WEB_URL')}/settings?tab=billing&canceled=true`,
       metadata: { teamId, planTier },
     });
 
@@ -57,7 +56,7 @@ export class BillingService {
 
     const session = await this.stripe.billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
-      return_url: `${this.configService.get('WEB_URL')}/settings/billing`,
+      return_url: `${this.configService.get('WEB_URL')}/settings?tab=billing`,
     });
 
     return { url: session.url };
@@ -72,16 +71,45 @@ export class BillingService {
         const session = event.data.object as Stripe.Checkout.Session;
         const { teamId, planTier } = session.metadata || {};
         if (teamId && planTier) {
-          await prisma.subscription.update({
+          // Fetch the Stripe subscription to get period dates
+          const stripeSub = await this.stripe.subscriptions.retrieve(session.subscription as string);
+          await prisma.subscription.upsert({
             where: { teamId },
-            data: {
+            update: {
               planTier: planTier as any,
               stripeCustomerId: session.customer as string,
               stripeSubscriptionId: session.subscription as string,
               status: 'ACTIVE',
+              currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+              currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            },
+            create: {
+              teamId,
+              planTier: planTier as any,
+              stripeCustomerId: session.customer as string,
+              stripeSubscriptionId: session.subscription as string,
+              status: 'ACTIVE',
+              currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+              currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
             },
           });
         }
+        break;
+      }
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription;
+        const unitAmount = sub.items.data[0]?.price?.unit_amount;
+        const planTier = this.planTierFromAmount(unitAmount);
+        await prisma.subscription.updateMany({
+          where: { stripeSubscriptionId: sub.id },
+          data: {
+            planTier,
+            status: sub.status === 'active' ? 'ACTIVE' : sub.status === 'past_due' ? 'PAST_DUE' : 'ACTIVE',
+            currentPeriodStart: new Date(sub.current_period_start * 1000),
+            currentPeriodEnd: new Date(sub.current_period_end * 1000),
+            cancelAtPeriodEnd: sub.cancel_at_period_end,
+          },
+        });
         break;
       }
       case 'customer.subscription.deleted': {
@@ -92,10 +120,94 @@ export class BillingService {
         });
         break;
       }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (invoice.subscription) {
+          await prisma.subscription.updateMany({
+            where: { stripeSubscriptionId: invoice.subscription as string },
+            data: { status: 'PAST_DUE' },
+          });
+        }
+        break;
+      }
     }
+  }
+
+  private planTierFromAmount(unitAmount: number | null | undefined): PlanTier {
+    if (!unitAmount) return 'FREE';
+    for (const [tier, plan] of Object.entries(SUBSCRIPTION_PLANS)) {
+      if (plan.price === unitAmount) return tier as PlanTier;
+    }
+    return 'FREE';
   }
 
   async getSubscription(teamId: string): Promise<any> {
     return prisma.subscription.findUnique({ where: { teamId } });
+  }
+
+  async getStatus(teamId: string) {
+    const subscription = await prisma.subscription.findUnique({ where: { teamId } });
+    const planTier = (subscription?.planTier || 'FREE') as PlanTier;
+    const plan = SUBSCRIPTION_PLANS[planTier];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Today's usage (for daily limits)
+    const todayUsage = await prisma.usageRecord.findUnique({
+      where: { teamId_date: { teamId, date: today } },
+    });
+
+    // Period usage (for monthly limits)
+    const periodStart = subscription?.currentPeriodStart || new Date(today.getFullYear(), today.getMonth(), 1);
+    const periodUsage = await prisma.usageRecord.aggregate({
+      where: {
+        teamId,
+        date: { gte: periodStart },
+      },
+      _sum: {
+        lookupCount: true,
+        bulkScanCount: true,
+        aiVerdictCount: true,
+        exportCount: true,
+      },
+    });
+
+    // Team member count
+    const memberCount = await prisma.teamMember.count({ where: { teamId } });
+
+    return {
+      subscription: subscription ? {
+        planTier: subscription.planTier,
+        status: subscription.status,
+        currentPeriodStart: subscription.currentPeriodStart,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      } : { planTier: 'FREE', status: 'ACTIVE' },
+      todayUsage: {
+        lookupCount: todayUsage?.lookupCount || 0,
+        bulkScanCount: todayUsage?.bulkScanCount || 0,
+        aiVerdictCount: todayUsage?.aiVerdictCount || 0,
+        exportCount: todayUsage?.exportCount || 0,
+      },
+      periodUsage: {
+        lookupCount: periodUsage._sum.lookupCount || 0,
+        bulkScanCount: periodUsage._sum.bulkScanCount || 0,
+        aiVerdictCount: periodUsage._sum.aiVerdictCount || 0,
+        exportCount: periodUsage._sum.exportCount || 0,
+      },
+      memberCount,
+      limits: {
+        lookupsPerDay: plan.lookupsPerDay,
+        bulkScansPerMonth: plan.bulkScansPerMonth,
+        aiVerdicts: plan.aiVerdicts,
+        maxTeamMembers: plan.maxTeamMembers,
+      },
+      plan: {
+        name: plan.name,
+        tier: plan.tier,
+        price: plan.price,
+      },
+    };
   }
 }

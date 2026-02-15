@@ -38,4 +38,10 @@ export class BillingController {
   async subscription(@CurrentUser('teamId') teamId: string): Promise<any> {
     return { success: true, data: await this.billingService.getSubscription(teamId) };
   }
+
+  @UseGuards(JwtAuthGuard, TeamMemberGuard)
+  @Get('status')
+  async status(@CurrentUser('teamId') teamId: string) {
+    return { success: true, data: await this.billingService.getStatus(teamId) };
+  }
 }

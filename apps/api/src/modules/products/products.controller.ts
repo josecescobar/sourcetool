@@ -2,11 +2,13 @@ import { Controller, Get, Post, Query, Param, Body, UseGuards } from '@nestjs/co
 import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
 import { TeamMemberGuard } from '../../common/guards/team-member.guard';
+import { PlanLimitGuard } from '../../common/guards/plan-limit.guard';
 import { RequireRole } from '../../common/decorators/require-role.decorator';
+import { PlanAction } from '../../common/decorators/plan-action.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { Marketplace } from '@sourcetool/shared';
 
-@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard, PlanLimitGuard)
 @RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('products')
 export class ProductsController {
@@ -20,6 +22,7 @@ export class ProductsController {
     return { success: true, data: await this.productsService.compare(body.asins, teamId) };
   }
 
+  @PlanAction('lookup')
   @Get('lookup')
   async lookup(
     @Query('identifier') identifier: string,

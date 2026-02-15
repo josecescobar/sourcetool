@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 import { usePermissions } from '@/hooks/usePermissions';
 import { EmailVerificationBanner } from '@/components/email-verification-banner';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 
 const allNavItems = [
   { href: '/products', label: 'Products', icon: Search },
@@ -95,6 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {user && !user.emailVerified && !user.googleId && <EmailVerificationBanner />}
         {children}
       </main>
+      <UpgradePrompt />
     </div>
   );
 }

@@ -2,11 +2,13 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@n
 import { TeamsService } from './teams.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
 import { TeamMemberGuard } from '../../common/guards/team-member.guard';
+import { PlanLimitGuard } from '../../common/guards/plan-limit.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequireRole } from '../../common/decorators/require-role.decorator';
+import { PlanAction } from '../../common/decorators/plan-action.decorator';
 import type { TeamRole } from '@sourcetool/shared';
 
-@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard, PlanLimitGuard)
 @Controller('teams')
 export class TeamsController {
   constructor(private teamsService: TeamsService) {}
@@ -48,6 +50,7 @@ export class TeamsController {
 
   // ─── Invites ───────────────────────────────────
 
+  @PlanAction('team_invite')
   @Post('invites')
   @RequireRole('OWNER', 'ADMIN')
   async createInvite(
