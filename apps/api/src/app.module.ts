@@ -19,6 +19,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SourcedProductsModule } from './modules/sourced-products/sourced-products.module';
 import { ProductWatchesModule } from './modules/product-watches/product-watches.module';
 import { SavedSearchesModule } from './modules/saved-searches/saved-searches.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { SavedSearchesModule } from './modules/saved-searches/saved-searches.mod
     SourcedProductsModule,
     ProductWatchesModule,
     SavedSearchesModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

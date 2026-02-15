@@ -7,6 +7,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api');
+
+  // Trust Railway's reverse proxy
+  if (process.env.NODE_ENV === 'production') {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  }
+
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const webUrl = process.env.WEB_URL || 'http://localhost:3000';
@@ -27,7 +33,7 @@ async function bootstrap() {
   );
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
-  console.log(`API running on http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`API running on port ${port}`);
 }
 bootstrap();
