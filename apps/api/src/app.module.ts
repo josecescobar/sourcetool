@@ -15,6 +15,7 @@ import { ExportModule } from './modules/export/export.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { BuyListsModule } from './modules/buy-lists/buy-lists.module';
 import { EmailModule } from './modules/email/email.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { EmailModule } from './modules/email/email.module';
     ExportModule,
     BillingModule,
     BuyListsModule,
+    AnalyticsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
