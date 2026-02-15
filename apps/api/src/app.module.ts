@@ -13,6 +13,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { ExportModule } from './modules/export/export.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { BuyListsModule } from './modules/buy-lists/buy-lists.module';
 import { EmailModule } from './modules/email/email.module';
 
 @Module({
@@ -33,6 +34,7 @@ import { EmailModule } from './modules/email/email.module';
     TeamsModule,
     ExportModule,
     BillingModule,
+    BuyListsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
