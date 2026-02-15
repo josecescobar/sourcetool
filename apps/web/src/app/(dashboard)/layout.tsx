@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search } from 'lucide-react';
+import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search, ShoppingBag } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { EmailVerificationBanner } from '@/components/email-verification-banner';
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/products', label: 'Products', icon: Search },
   { href: '/bulk-scan', label: 'Bulk Scan', icon: Upload },
   { href: '/buy-list', label: 'Buy List', icon: List },
+  { href: '/sourced-products', label: 'Sourced', icon: ShoppingBag },
   { href: '/performance', label: 'Performance', icon: BarChart3 },
   { href: '/alerts', label: 'Alerts', icon: ShieldAlert },
   { href: '/team', label: 'Team', icon: Users },

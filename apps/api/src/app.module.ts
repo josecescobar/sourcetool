@@ -16,6 +16,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { BuyListsModule } from './modules/buy-lists/buy-lists.module';
 import { EmailModule } from './modules/email/email.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { SourcedProductsModule } from './modules/sourced-products/sourced-products.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     BillingModule,
     BuyListsModule,
     AnalyticsModule,
+    SourcedProductsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
