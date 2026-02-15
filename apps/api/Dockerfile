@@ -34,8 +34,14 @@ RUN pnpm --filter @sourcetool/shared run build
 RUN pnpm --filter @sourcetool/ai run build
 RUN pnpm --filter @sourcetool/api run build
 
+# Save generated Prisma client before pruning
+RUN cp -r node_modules/.prisma /tmp/.prisma
+
 # Prune dev dependencies
 RUN pnpm prune --prod
+
+# Restore Prisma client after pruning
+RUN cp -r /tmp/.prisma node_modules/.prisma
 
 # ── Production stage ─────────────────────────────
 FROM node:20-slim AS production
@@ -64,9 +70,6 @@ COPY --from=build /app/packages/ai/package.json ./packages/ai/
 
 # Copy Prisma schema + migrations for migrate deploy
 COPY --from=build /app/packages/db/prisma ./packages/db/prisma
-
-# Copy generated Prisma client
-COPY --from=build /app/packages/db/node_modules/.prisma ./packages/db/node_modules/.prisma
 
 ENV NODE_ENV=production
 
