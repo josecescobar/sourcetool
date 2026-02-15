@@ -14,9 +14,6 @@ out/
 .env.local
 .env.*.local
 
-# Database
-packages/db/prisma/migrations/
-
 # IDE
 .vscode/
 .idea/
