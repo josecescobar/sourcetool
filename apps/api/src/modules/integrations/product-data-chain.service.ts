@@ -5,14 +5,18 @@ import type {
   ExternalProductData,
 } from './interfaces/product-data-provider.interface';
 import { RainforestService } from './rainforest/rainforest.service';
+import { AmazonSpApiService } from './amazon-sp-api/amazon-sp-api.service';
 
 @Injectable()
 export class ProductDataChainService implements ProductDataProvider {
   private readonly logger = new Logger(ProductDataChainService.name);
   private readonly providers: ProductDataProvider[];
 
-  constructor(private rainforest: RainforestService) {
-    this.providers = [this.rainforest];
+  constructor(
+    private rainforest: RainforestService,
+    private amazonSpApi: AmazonSpApiService,
+  ) {
+    this.providers = [this.rainforest, this.amazonSpApi];
   }
 
   async getByAsin(
