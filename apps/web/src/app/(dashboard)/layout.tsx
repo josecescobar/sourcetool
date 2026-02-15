@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -34,6 +35,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (data.success) {
         setUser(data.data);
       }
+    }).catch(() => {});
+
+    apiClient.get('/product-watches/alerts/count').then((data) => {
+      if (data.success) setAlertCount(data.data.count);
     }).catch(() => {});
   }, [router]);
 
@@ -64,6 +69,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }`}>
               <Icon className="h-4 w-4" />
               {label}
+              {href === '/alerts' && alertCount > 0 && (
+                <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                  {alertCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

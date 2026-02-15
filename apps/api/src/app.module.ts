@@ -17,6 +17,7 @@ import { BuyListsModule } from './modules/buy-lists/buy-lists.module';
 import { EmailModule } from './modules/email/email.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SourcedProductsModule } from './modules/sourced-products/sourced-products.module';
+import { ProductWatchesModule } from './modules/product-watches/product-watches.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SourcedProductsModule } from './modules/sourced-products/sourced-produc
     BuyListsModule,
     AnalyticsModule,
     SourcedProductsModule,
+    ProductWatchesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

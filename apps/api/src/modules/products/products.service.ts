@@ -5,12 +5,16 @@ import type { Marketplace } from '@sourcetool/shared';
 import { ProductDataChainService } from '../integrations/product-data-chain.service';
 import { STALENESS_THRESHOLD_MS } from '../integrations/rainforest/rainforest.constants';
 import type { ExternalProductData } from '../integrations/interfaces/product-data-provider.interface';
+import { ProductWatchesService } from '../product-watches/product-watches.service';
 
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
 
-  constructor(private productDataChain: ProductDataChainService) {}
+  constructor(
+    private productDataChain: ProductDataChainService,
+    private productWatches: ProductWatchesService,
+  ) {}
 
   async lookup(identifier: string, marketplace?: Marketplace): Promise<any> {
     const detected = detectIdentifier(identifier);
@@ -177,6 +181,18 @@ export class ProductsService {
         },
       });
 
+      // Record history and check watches (fire-and-forget)
+      this.recordHistoryAndCheckWatches(
+        product.id,
+        data.listing.marketplace,
+        data.listing.currentPrice,
+        data.listing.buyBoxPrice,
+        data.listing.bsr,
+        data.listing.bsrCategory,
+      ).catch((err) => {
+        this.logger.error(`History/watch check failed: ${err}`);
+      });
+
       // Re-fetch with updated listings
       return prisma.product.findUnique({
         where: { id: product.id },
@@ -204,5 +220,30 @@ export class ProductsService {
   private isStale(lastFetchedAt: Date | null | undefined): boolean {
     if (!lastFetchedAt) return true;
     return Date.now() - lastFetchedAt.getTime() > STALENESS_THRESHOLD_MS;
+  }
+
+  private async recordHistoryAndCheckWatches(
+    productId: string,
+    marketplace: Marketplace,
+    currentPrice: number | undefined,
+    buyBoxPrice: number | undefined,
+    bsr: number | undefined,
+    bsrCategory: string | undefined,
+  ) {
+    const now = new Date();
+
+    if (currentPrice != null) {
+      await prisma.priceHistory.create({
+        data: { productId, marketplace, price: currentPrice, buyBoxPrice, recordedAt: now },
+      });
+    }
+
+    if (bsr != null && bsrCategory) {
+      await prisma.bsrHistory.create({
+        data: { productId, marketplace, bsr, category: bsrCategory, recordedAt: now },
+      });
+    }
+
+    await this.productWatches.checkProduct(productId, marketplace, currentPrice, bsr);
   }
 }
