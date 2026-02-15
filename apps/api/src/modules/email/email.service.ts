@@ -35,6 +35,24 @@ export class EmailService {
     });
   }
 
+  async sendTeamInviteEmail(email: string, token: string, teamName: string) {
+    if (!this.resend) return;
+    const url = `${this.webUrl}/invite?token=${token}`;
+
+    await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      subject: `You've been invited to ${teamName} — SourceTool`,
+      html: `
+        <h2>Team Invitation</h2>
+        <p>You've been invited to join <strong>${teamName}</strong> on SourceTool.</p>
+        <p><a href="${url}">Accept Invitation</a></p>
+        <p>This invitation expires in 7 days.</p>
+        <p>If you didn't expect this invitation, you can ignore this email.</p>
+      `,
+    });
+  }
+
   async sendPasswordResetEmail(email: string, token: string) {
     if (!this.resend) return;
     const url = `${this.webUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;

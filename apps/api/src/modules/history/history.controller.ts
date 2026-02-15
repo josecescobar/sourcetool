@@ -1,9 +1,12 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { HistoryService } from './history.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 import type { Marketplace } from '@sourcetool/shared';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('history')
 export class HistoryController {
   constructor(private historyService: HistoryService) {}

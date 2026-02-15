@@ -8,10 +8,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 import { SavedSearchesService } from './saved-searches.service';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('saved-searches')
 export class SavedSearchesController {
   constructor(private readonly savedSearches: SavedSearchesService) {}
@@ -21,6 +24,7 @@ export class SavedSearchesController {
     return { success: true, data: await this.savedSearches.getAll(teamId) };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post()
   async create(
     @CurrentUser('teamId') teamId: string,
@@ -33,6 +37,7 @@ export class SavedSearchesController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Delete(':id')
   async remove(
     @Param('id') id: string,

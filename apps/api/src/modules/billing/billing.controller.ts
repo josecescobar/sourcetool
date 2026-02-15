@@ -2,20 +2,24 @@ import { Controller, Post, Get, Body, Req, UseGuards, RawBodyRequest } from '@ne
 import type { Request } from 'express';
 import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 import type { PlanTier } from '@sourcetool/shared';
 
 @Controller('billing')
 export class BillingController {
   constructor(private billingService: BillingService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TeamMemberGuard)
+  @RequireRole('OWNER')
   @Post('checkout')
   async checkout(@Body() body: { planTier: PlanTier }, @CurrentUser('teamId') teamId: string) {
     return { success: true, data: await this.billingService.createCheckoutSession(teamId, body.planTier) };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TeamMemberGuard)
+  @RequireRole('OWNER')
   @Post('portal')
   async portal(@CurrentUser('teamId') teamId: string) {
     return { success: true, data: await this.billingService.createPortalSession(teamId) };
@@ -28,7 +32,8 @@ export class BillingController {
     return { received: true };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TeamMemberGuard)
+  @RequireRole('OWNER', 'ADMIN')
   @Get('subscription')
   async subscription(@CurrentUser('teamId') teamId: string): Promise<any> {
     return { success: true, data: await this.billingService.getSubscription(teamId) };

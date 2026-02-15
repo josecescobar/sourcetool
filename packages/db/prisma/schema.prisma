@@ -115,6 +115,7 @@ model Team {
   createdAt DateTime @default(now())
 
   members        TeamMember[]
+  teamInvites    TeamInvite[]
   subscription   Subscription?
   usageRecords   UsageRecord[]
   analyses       ProductAnalysis[]
@@ -142,6 +143,23 @@ model TeamMember {
 
   @@unique([teamId, userId])
   @@map("team_members")
+}
+
+model TeamInvite {
+  id        String   @id @default(cuid())
+  teamId    String
+  email     String
+  role      TeamRole @default(VA)
+  token     String   // SHA-256 hash of raw token
+  invitedBy String   // userId of who sent the invite
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, email])
+  @@index([token])
+  @@map("team_invites")
 }
 
 model Subscription {

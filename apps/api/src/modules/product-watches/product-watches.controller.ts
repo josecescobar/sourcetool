@@ -11,9 +11,12 @@ import {
 } from '@nestjs/common';
 import { ProductWatchesService } from './product-watches.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN')
 @Controller('product-watches')
 export class ProductWatchesController {
   constructor(private watchesService: ProductWatchesService) {}
@@ -57,6 +60,7 @@ export class ProductWatchesController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VIEWER')
   @Get('alerts')
   async getAlerts(
     @CurrentUser('teamId') teamId: string,
@@ -71,6 +75,7 @@ export class ProductWatchesController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VIEWER')
   @Get('alerts/count')
   async getUnreadCount(@CurrentUser('teamId') teamId: string) {
     return {

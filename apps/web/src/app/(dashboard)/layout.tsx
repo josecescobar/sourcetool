@@ -5,9 +5,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search, ShoppingBag } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/contexts/auth-context';
+import { usePermissions } from '@/hooks/usePermissions';
 import { EmailVerificationBanner } from '@/components/email-verification-banner';
 
-const navItems = [
+const allNavItems = [
   { href: '/products', label: 'Products', icon: Search },
   { href: '/bulk-scan', label: 'Bulk Scan', icon: Upload },
   { href: '/buy-list', label: 'Buy List', icon: List },
@@ -21,7 +23,8 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading, logout } = useAuth();
+  const { canAccessAnalytics, canAccessSourced, canManageWatches } = usePermissions();
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
@@ -30,23 +33,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
       return;
     }
-
-    apiClient.get('/auth/me').then((data) => {
-      if (data.success) {
-        setUser(data.data);
-      }
-    }).catch(() => {});
-
-    apiClient.get('/product-watches/alerts/count').then((data) => {
-      if (data.success) setAlertCount(data.data.count);
-    }).catch(() => {});
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    router.push('/login');
-  };
+  useEffect(() => {
+    if (!user) return;
+    if (canManageWatches) {
+      apiClient.get('/product-watches/alerts/count').then((data) => {
+        if (data.success) setAlertCount(data.data.count);
+      }).catch(() => {});
+    }
+  }, [user, canManageWatches]);
+
+  const navItems = allNavItems.filter(({ href }) => {
+    if (href === '/performance' && !canAccessAnalytics) return false;
+    if (href === '/sourced-products' && !canAccessSourced) return false;
+    return true;
+  });
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -79,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="border-t p-3">
-          <button onClick={handleLogout}
+          <button onClick={logout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
             <LogOut className="h-4 w-4" />
             Log Out

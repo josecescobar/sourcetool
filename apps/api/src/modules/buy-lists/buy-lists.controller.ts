@@ -10,9 +10,12 @@ import {
 } from '@nestjs/common';
 import { BuyListsService } from './buy-lists.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('buy-lists')
 export class BuyListsController {
   constructor(private buyListsService: BuyListsService) {}
@@ -22,6 +25,7 @@ export class BuyListsController {
     return { success: true, data: await this.buyListsService.getAll(teamId) };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post()
   async create(
     @CurrentUser('teamId') teamId: string,
@@ -44,6 +48,7 @@ export class BuyListsController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -56,6 +61,7 @@ export class BuyListsController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Delete(':id')
   async delete(
     @Param('id') id: string,
@@ -67,6 +73,7 @@ export class BuyListsController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post(':id/items/batch')
   async addItemsBatch(
     @Param('id') listId: string,
@@ -86,6 +93,7 @@ export class BuyListsController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post(':id/items')
   async addItem(
     @Param('id') listId: string,
@@ -98,6 +106,7 @@ export class BuyListsController {
     };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Delete(':id/items/:itemId')
   async removeItem(
     @Param('id') listId: string,

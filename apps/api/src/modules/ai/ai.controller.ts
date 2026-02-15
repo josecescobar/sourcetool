@@ -1,9 +1,12 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 import type { DealScoreInput } from '@sourcetool/shared';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN', 'VA')
 @Controller('ai')
 export class AiController {
   constructor(private aiService: AiService) {}
