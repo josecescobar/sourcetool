@@ -67,6 +67,25 @@ export class BuyListsController {
     };
   }
 
+  @Post(':id/items/batch')
+  async addItemsBatch(
+    @Param('id') listId: string,
+    @CurrentUser('teamId') teamId: string,
+    @Body()
+    body: {
+      items: Array<{ productId: string; analysisId?: string; notes?: string }>;
+    },
+  ) {
+    return {
+      success: true,
+      data: await this.buyListsService.addItemsBatch(
+        listId,
+        teamId,
+        body.items,
+      ),
+    };
+  }
+
   @Post(':id/items')
   async addItem(
     @Param('id') listId: string,

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, FileText, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, List } from 'lucide-react';
 import { parseCSV, type ParseResult } from '@/lib/csv-parser';
 import { useBulkScan } from '@/hooks/useBulkScan';
+import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
 
 type Phase = 'upload' | 'processing' | 'results';
 
@@ -16,6 +17,10 @@ export default function BulkScanPage() {
   const [defaultBuyPrice, setDefaultBuyPrice] = useState('');
 
   const { scan, results, loading, error, startScan, reset } = useBulkScan();
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [buyListOpen, setBuyListOpen] = useState(false);
+  const [buyListItems, setBuyListItems] = useState<Array<{ productId: string; analysisId?: string }>>([]);
+  const [buyListMessage, setBuyListMessage] = useState('');
 
   const handleFileChange = useCallback(async (selectedFile: File) => {
     setFile(selectedFile);
@@ -48,11 +53,42 @@ export default function BulkScanPage() {
     setPhase('processing');
   };
 
+  const successRows = results?.filter((r: any) => r.status === 'SUCCESS' && r.product) || [];
+
+  const toggleRow = (id: string) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedRows.size === successRows.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(successRows.map((r: any) => r.id)));
+    }
+  };
+
+  const openBuyListForRows = (rows: any[]) => {
+    setBuyListItems(
+      rows.map((r: any) => ({
+        productId: r.product.id,
+        analysisId: r.analysis?.id,
+      })),
+    );
+    setBuyListOpen(true);
+  };
+
   const handleNewScan = () => {
     reset();
     setFile(null);
     setParsed(null);
     setDefaultBuyPrice('');
+    setSelectedRows(new Set());
+    setBuyListMessage('');
     setPhase('upload');
   };
 
@@ -248,12 +284,49 @@ export default function BulkScanPage() {
             </button>
           </div>
 
+          {buyListMessage && (
+            <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+              {buyListMessage}
+            </div>
+          )}
+
+          {/* Bulk action bar */}
+          {selectedRows.size > 0 && (
+            <div className="rounded-lg border bg-blue-50 p-3 flex items-center gap-4 text-sm">
+              <span className="font-medium">{selectedRows.size} item{selectedRows.size !== 1 ? 's' : ''} selected</span>
+              <button
+                onClick={() => {
+                  const selected = successRows.filter((r: any) => selectedRows.has(r.id));
+                  openBuyListForRows(selected);
+                }}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <List className="h-3.5 w-3.5" />
+                Add to Buy List
+              </button>
+              <button
+                onClick={() => setSelectedRows(new Set())}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Clear Selection
+              </button>
+            </div>
+          )}
+
           {/* Results table */}
           {results && results.length > 0 && (
             <div className="rounded-xl border bg-white shadow-sm overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={successRows.length > 0 && selectedRows.size === successRows.length}
+                        onChange={toggleAll}
+                        className="rounded"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">#</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Product</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">ASIN</th>
@@ -265,6 +338,7 @@ export default function BulkScanPage() {
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Margin</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Fees</th>
                     <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,9 +346,22 @@ export default function BulkScanPage() {
                     const listing = row.product?.listings?.find(
                       (l: any) => l.marketplace === scan.marketplace,
                     ) ?? row.product?.listings?.[0];
+                    const isSuccess = row.status === 'SUCCESS' && row.product;
 
                     return (
                       <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          {isSuccess ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedRows.has(row.id)}
+                              onChange={() => toggleRow(row.id)}
+                              className="rounded"
+                            />
+                          ) : (
+                            <span />
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">{row.rowNumber}</td>
                         <td className="px-4 py-3 max-w-[200px]">
                           {row.product ? (
@@ -350,6 +437,17 @@ export default function BulkScanPage() {
                             <span className="text-xs text-muted-foreground">Pending</span>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          {isSuccess && (
+                            <button
+                              onClick={() => openBuyListForRows([row])}
+                              title="Add to Buy List"
+                              className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-gray-100 transition-colors"
+                            >
+                              <List className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -359,6 +457,19 @@ export default function BulkScanPage() {
           )}
         </div>
       )}
+
+      <AddToBuyListDialog
+        open={buyListOpen}
+        onOpenChange={(open) => {
+          setBuyListOpen(open);
+          if (!open) setSelectedRows(new Set());
+        }}
+        items={buyListItems}
+        onSuccess={() => {
+          setBuyListMessage('Items added to buy list successfully');
+          setTimeout(() => setBuyListMessage(''), 4000);
+        }}
+      />
     </div>
   );
 }

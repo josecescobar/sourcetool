@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { Search } from 'lucide-react';
+import { Search, List } from 'lucide-react';
+import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
 
 export default function ProductsPage() {
   const [query, setQuery] = useState('');
@@ -11,6 +12,8 @@ export default function ProductsPage() {
   const [buyPrice, setBuyPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [buyListOpen, setBuyListOpen] = useState(false);
+  const [buyListMessage, setBuyListMessage] = useState('');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +78,18 @@ export default function ProductsPage() {
 
       {error && <div className="mb-4 rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
+      {product && (
+        <AddToBuyListDialog
+          open={buyListOpen}
+          onOpenChange={setBuyListOpen}
+          items={[{ productId: product.id, analysisId: analysis?.id }]}
+          onSuccess={() => {
+            setBuyListMessage('Added to buy list');
+            setTimeout(() => setBuyListMessage(''), 3000);
+          }}
+        />
+      )}
+
       {/* Product Result */}
       {product && (
         <div className="rounded-xl border bg-white p-6 shadow-sm">
@@ -82,8 +97,20 @@ export default function ProductsPage() {
             {product.imageUrl && (
               <img src={product.imageUrl} alt="" className="h-24 w-24 rounded-lg object-contain border" />
             )}
-            <div>
-              <h2 className="text-lg font-semibold">{product.title}</h2>
+            <div className="flex-1">
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-lg font-semibold">{product.title}</h2>
+                <button
+                  onClick={() => setBuyListOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-gray-50 transition-colors flex-shrink-0"
+                >
+                  <List className="h-4 w-4" />
+                  Add to Buy List
+                </button>
+              </div>
+              {buyListMessage && (
+                <div className="mt-2 text-sm text-green-600">{buyListMessage}</div>
+              )}
               <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
                 {product.asin && <span>ASIN: {product.asin}</span>}
                 {product.brand && <span>Brand: {product.brand}</span>}

@@ -127,6 +127,33 @@ export function useBuyLists() {
     return null;
   }, [activeList]);
 
+  const addItemsBatch = useCallback(async (
+    listId: string,
+    items: Array<{ productId: string; analysisId?: string; notes?: string }>,
+  ) => {
+    setError(null);
+    try {
+      const data = await apiClient.post(`/buy-lists/${listId}/items/batch`, {
+        items,
+      });
+      if (data.success) {
+        setLists((prev) =>
+          prev.map((l) =>
+            l.id === listId
+              ? { ...l, _count: { items: (l._count?.items || 0) + data.data.added } }
+              : l,
+          ),
+        );
+        return data.data;
+      } else {
+        setError(data.error?.message || 'Failed to add items');
+      }
+    } catch {
+      setError('Failed to add items');
+    }
+    return null;
+  }, []);
+
   const removeItem = useCallback(async (listId: string, itemId: string) => {
     setError(null);
     try {
@@ -165,6 +192,7 @@ export function useBuyLists() {
     fetchList,
     renameList,
     addItem,
+    addItemsBatch,
     removeItem,
   };
 }
