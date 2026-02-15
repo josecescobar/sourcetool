@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, List, RotateCcw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, List, RotateCcw, Columns3 } from 'lucide-react';
 import { parseCSV, type ParseResult } from '@/lib/csv-parser';
 import { useBulkScan } from '@/hooks/useBulkScan';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
@@ -9,6 +10,7 @@ import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
 type Phase = 'upload' | 'processing' | 'results';
 
 export default function BulkScanPage() {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
@@ -323,6 +325,20 @@ export default function BulkScanPage() {
                 <List className="h-3.5 w-3.5" />
                 Add to Buy List
               </button>
+              {selectedRows.size >= 2 && selectedRows.size <= 3 && (
+                <button
+                  onClick={() => {
+                    const asins = successRows
+                      .filter((r: any) => selectedRows.has(r.id) && r.product?.asin)
+                      .map((r: any) => r.product.asin);
+                    if (asins.length >= 2) router.push(`/compare?asins=${asins.join(',')}`);
+                  }}
+                  className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-white px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5"
+                >
+                  <Columns3 className="h-3.5 w-3.5" />
+                  Compare Selected
+                </button>
+              )}
               <button
                 onClick={() => setSelectedRows(new Set())}
                 className="text-sm text-muted-foreground hover:text-foreground"

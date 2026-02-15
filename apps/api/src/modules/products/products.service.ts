@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { prisma } from '@sourcetool/db';
 import { detectIdentifier } from '@sourcetool/shared';
 import type { Marketplace } from '@sourcetool/shared';
@@ -101,6 +101,41 @@ export class ProductsService {
     });
 
     return { product, listings };
+  }
+
+  async compare(asins: string[], teamId: string): Promise<any> {
+    const unique = [...new Set(asins.map((a) => a.trim().toUpperCase()))];
+    if (unique.length < 2 || unique.length > 3) {
+      throw new BadRequestException('Provide 2 or 3 ASINs to compare');
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const products = await Promise.all(
+      unique.map(async (asin) => {
+        const product = await this.lookup(asin);
+        const listing = product.listings?.[0] || null;
+
+        const [analysis, priceHistory, bsrHistory] = await Promise.all([
+          prisma.productAnalysis.findFirst({
+            where: { productId: product.id, teamId },
+            orderBy: { createdAt: 'desc' },
+          }),
+          prisma.priceHistory.findMany({
+            where: { productId: product.id, recordedAt: { gte: thirtyDaysAgo } },
+            orderBy: { recordedAt: 'asc' },
+          }),
+          prisma.bsrHistory.findMany({
+            where: { productId: product.id, recordedAt: { gte: thirtyDaysAgo } },
+            orderBy: { recordedAt: 'asc' },
+          }),
+        ]);
+
+        return { product, listing, analysis, priceHistory, bsrHistory };
+      }),
+    );
+
+    return { products };
   }
 
   // ─── Private helpers ──────────────────────────────────────────────

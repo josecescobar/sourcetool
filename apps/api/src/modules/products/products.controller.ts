@@ -3,6 +3,7 @@ import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
 import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { RequireRole } from '../../common/decorators/require-role.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { Marketplace } from '@sourcetool/shared';
 
 @UseGuards(JwtAuthGuard, TeamMemberGuard)
@@ -10,6 +11,14 @@ import type { Marketplace } from '@sourcetool/shared';
 @Controller('products')
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
+
+  @Post('compare')
+  async compare(
+    @Body() body: { asins: string[] },
+    @CurrentUser('teamId') teamId: string,
+  ): Promise<any> {
+    return { success: true, data: await this.productsService.compare(body.asins, teamId) };
+  }
 
   @Get('lookup')
   async lookup(

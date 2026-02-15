@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
-import { Search, List, Bookmark, X, Clock } from 'lucide-react';
+import { Search, List, Bookmark, X, Clock, Columns3 } from 'lucide-react';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
 import { useSavedSearches } from '@/hooks/useSavedSearches';
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [product, setProduct] = useState<any>(null);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -159,13 +161,24 @@ export default function ProductsPage() {
             <div className="flex-1">
               <div className="flex items-start justify-between gap-4">
                 <h2 className="text-lg font-semibold">{product.title}</h2>
-                <button
-                  onClick={() => setBuyListOpen(true)}
-                  className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-gray-50 transition-colors flex-shrink-0"
-                >
-                  <List className="h-4 w-4" />
-                  Add to Buy List
-                </button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => setBuyListOpen(true)}
+                    className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <List className="h-4 w-4" />
+                    Add to Buy List
+                  </button>
+                  {product.asin && (
+                    <button
+                      onClick={() => router.push(`/compare?asins=${product.asin}`)}
+                      className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      <Columns3 className="h-4 w-4" />
+                      Compare with...
+                    </button>
+                  )}
+                </div>
               </div>
               {buyListMessage && (
                 <div className="mt-2 text-sm text-green-600">{buyListMessage}</div>
