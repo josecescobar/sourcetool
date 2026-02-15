@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, List } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, List, RotateCcw } from 'lucide-react';
 import { parseCSV, type ParseResult } from '@/lib/csv-parser';
 import { useBulkScan } from '@/hooks/useBulkScan';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
@@ -16,7 +16,7 @@ export default function BulkScanPage() {
   const [fulfillmentType, setFulfillmentType] = useState('FBA');
   const [defaultBuyPrice, setDefaultBuyPrice] = useState('');
 
-  const { scan, results, loading, error, startScan, reset } = useBulkScan();
+  const { scan, results, loading, retrying, error, startScan, retryFailed, reset } = useBulkScan();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [buyListOpen, setBuyListOpen] = useState(false);
   const [buyListItems, setBuyListItems] = useState<Array<{ productId: string; analysisId?: string }>>([]);
@@ -276,12 +276,31 @@ export default function BulkScanPage() {
                 </span>
               )}
             </div>
-            <button
-              onClick={handleNewScan}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              New Scan
-            </button>
+            <div className="flex items-center gap-2">
+              {scan.failedRows > 0 && scan.status === 'COMPLETED' && (
+                <button
+                  onClick={() => {
+                    retryFailed(scan.id);
+                    setPhase('processing');
+                  }}
+                  disabled={retrying}
+                  className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                >
+                  {retrying ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  )}
+                  Retry Failed
+                </button>
+              )}
+              <button
+                onClick={handleNewScan}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                New Scan
+              </button>
+            </div>
           </div>
 
           {buyListMessage && (

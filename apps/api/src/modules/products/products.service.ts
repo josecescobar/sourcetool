@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { prisma } from '@sourcetool/db';
 import { detectIdentifier } from '@sourcetool/shared';
 import type { Marketplace } from '@sourcetool/shared';
-import { RainforestService } from '../integrations/rainforest/rainforest.service';
+import { ProductDataChainService } from '../integrations/product-data-chain.service';
 import { STALENESS_THRESHOLD_MS } from '../integrations/rainforest/rainforest.constants';
 import type { ExternalProductData } from '../integrations/interfaces/product-data-provider.interface';
 
@@ -10,7 +10,7 @@ import type { ExternalProductData } from '../integrations/interfaces/product-dat
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
 
-  constructor(private rainforest: RainforestService) {}
+  constructor(private productDataChain: ProductDataChainService) {}
 
   async lookup(identifier: string, marketplace?: Marketplace): Promise<any> {
     const detected = detectIdentifier(identifier);
@@ -107,9 +107,9 @@ export class ProductsService {
     marketplace: Marketplace,
   ): Promise<ExternalProductData | null> {
     if (type === 'ASIN') {
-      return this.rainforest.getByAsin(value, marketplace);
+      return this.productDataChain.getByAsin(value, marketplace);
     }
-    return this.rainforest.searchByBarcode(value, type, marketplace);
+    return this.productDataChain.searchByBarcode(value, type, marketplace);
   }
 
   private async persistExternalProduct(

@@ -33,6 +33,15 @@ export class BulkScanController {
     return { success: true, data: await this.bulkScanService.getResults(id, sort, filter) };
   }
 
+  @Post(':id/retry')
+  async retry(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('teamId') teamId: string,
+  ): Promise<any> {
+    return { success: true, data: await this.bulkScanService.retryFailed(id, teamId, userId) };
+  }
+
   @Delete(':id')
   async delete(@Param('id') id: string) {
     await this.bulkScanService.delete(id);

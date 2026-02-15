@@ -22,6 +22,7 @@ export function useBulkScan() {
   const [scan, setScan] = useState<ScanStatus | null>(null);
   const [results, setResults] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -48,6 +49,7 @@ export function useBulkScan() {
 
     if (status.status === 'COMPLETED' || status.status === 'FAILED') {
       stopPolling();
+      setRetrying(false);
       await fetchResults(scanId);
     }
   }, [stopPolling, fetchResults]);
@@ -85,13 +87,38 @@ export function useBulkScan() {
     }
   }, [pollStatus]);
 
+  const retryFailed = useCallback(async (scanId: string) => {
+    setRetrying(true);
+    setError(null);
+
+    try {
+      const data = await apiClient.post(`/bulk-scans/${scanId}/retry`, {});
+      if (!data.success) {
+        setError(data.error?.message || 'Failed to retry');
+        setRetrying(false);
+        return;
+      }
+
+      setScan(data.data as ScanStatus);
+
+      // Start polling
+      pollRef.current = setInterval(() => {
+        pollStatus(scanId);
+      }, 2000);
+    } catch {
+      setError('Failed to retry failed rows');
+      setRetrying(false);
+    }
+  }, [pollStatus]);
+
   const reset = useCallback(() => {
     stopPolling();
     setScan(null);
     setResults(null);
     setLoading(false);
+    setRetrying(false);
     setError(null);
   }, [stopPolling]);
 
-  return { scan, results, loading, error, startScan, reset };
+  return { scan, results, loading, retrying, error, startScan, retryFailed, reset };
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { prisma } from '@sourcetool/db';
 import { ProductsService } from '../products/products.service';
 import { AnalysisService } from '../analysis/analysis.service';
@@ -83,6 +83,35 @@ export class BulkScanService {
     });
 
     return rows;
+  }
+
+  async retryFailed(scanId: string, teamId: string, userId: string): Promise<any> {
+    const scan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
+    if (!scan) throw new NotFoundException('Bulk scan not found');
+    if (scan.status !== 'COMPLETED') {
+      throw new BadRequestException('Can only retry a completed scan');
+    }
+
+    const failedRows = await prisma.bulkScanRow.findMany({
+      where: { bulkScanId: scanId, status: 'FAILED' },
+      orderBy: { rowNumber: 'asc' },
+    });
+
+    if (failedRows.length === 0) {
+      throw new BadRequestException('No failed rows to retry');
+    }
+
+    await prisma.bulkScan.update({
+      where: { id: scanId },
+      data: { status: 'PROCESSING' },
+    });
+
+    // Fire-and-forget
+    this.processRetryAsync(scanId, teamId, userId, failedRows).catch((err) => {
+      this.logger.error(`Bulk scan retry ${scanId} failed: ${err.message}`);
+    });
+
+    return prisma.bulkScan.findUnique({ where: { id: scanId } });
   }
 
   async delete(id: string): Promise<any> {
@@ -215,6 +244,93 @@ export class BulkScanService {
     await prisma.bulkScan.update({
       where: { id: scanId },
       data: { status: 'COMPLETED', completedAt: new Date() },
+    });
+  }
+
+  private async processRetryAsync(
+    scanId: string,
+    teamId: string,
+    userId: string,
+    failedRows: Array<{ id: string; rowNumber: number; identifier: string; buyPrice: any }>,
+  ): Promise<void> {
+    const scan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
+    if (!scan) return;
+
+    for (let i = 0; i < failedRows.length; i++) {
+      const row = failedRows[i]!;
+      try {
+        const buyPrice = row.buyPrice ?? scan.defaultBuyPrice;
+        if (buyPrice == null) {
+          throw new Error('No buy price provided');
+        }
+
+        if (i > 0) {
+          await this.delay(1500);
+        }
+
+        const product = await this.productsService.lookup(
+          row.identifier,
+          scan.marketplace as Marketplace,
+        );
+
+        const listing = product.listings?.find(
+          (l: any) => l.marketplace === scan.marketplace,
+        );
+
+        const sellPrice = listing?.buyBoxPrice ?? listing?.currentPrice;
+        if (!sellPrice) {
+          throw new Error('No sell price available for this marketplace');
+        }
+
+        const analysisResult = await this.analysisService.calculate(
+          {
+            productId: product.id,
+            asin: product.asin,
+            marketplace: scan.marketplace as Marketplace,
+            fulfillmentType: scan.fulfillmentType as FulfillmentType,
+            buyPrice,
+            sellPrice,
+            category: product.category ?? undefined,
+            dimensions: product.dimensions as any,
+          },
+          userId,
+          teamId,
+        );
+
+        await prisma.bulkScanRow.update({
+          where: { id: row.id },
+          data: {
+            status: 'SUCCESS',
+            productId: product.id,
+            analysisId: analysisResult.analysisId,
+            error: null,
+            processedAt: new Date(),
+          },
+        });
+
+        await prisma.bulkScan.update({
+          where: { id: scanId },
+          data: {
+            successRows: { increment: 1 },
+            failedRows: { decrement: 1 },
+          },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Retry row ${row.rowNumber} failed: ${err.message}`);
+
+        await prisma.bulkScanRow.update({
+          where: { id: row.id },
+          data: {
+            error: err.message || 'Unknown error',
+            processedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    await prisma.bulkScan.update({
+      where: { id: scanId },
+      data: { status: 'COMPLETED' },
     });
   }
 

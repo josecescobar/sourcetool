@@ -13,6 +13,9 @@ import {
   DEFAULT_MARKETPLACE,
 } from './rainforest.constants';
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 1000;
+
 @Injectable()
 export class RainforestService implements ProductDataProvider {
   private readonly logger = new Logger(RainforestService.name);
@@ -71,33 +74,63 @@ export class RainforestService implements ProductDataProvider {
     marketplace: Marketplace,
     label: string,
   ): Promise<ExternalProductData | null> {
-    try {
-      const url = `${RAINFOREST_BASE_URL}?${params.toString()}`;
-      const res = await fetch(url);
+    const url = `${RAINFOREST_BASE_URL}?${params.toString()}`;
 
-      if (!res.ok) {
-        this.logger.error(
-          `Rainforest API ${label}: HTTP ${res.status} ${res.statusText}`,
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(url);
+
+        if (!res.ok) {
+          const isTransient =
+            res.status === 429 || res.status >= 500;
+
+          if (isTransient && attempt < MAX_RETRIES) {
+            const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+            this.logger.warn(
+              `Rainforest API ${label}: HTTP ${res.status} — retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
+            );
+            await this.sleep(delay);
+            continue;
+          }
+
+          this.logger.error(
+            `Rainforest API ${label}: HTTP ${res.status} ${res.statusText}`,
+          );
+          return null;
+        }
+
+        const data = (await res.json()) as RainforestResponse;
+
+        if (!data.request_info?.success || !data.product) {
+          this.logger.debug(`Rainforest API ${label}: no product returned`);
+          return null;
+        }
+
+        this.logger.debug(
+          `Rainforest API ${label}: OK (${data.request_info.credits_remaining} credits remaining)`,
         );
+
+        return mapRainforestProduct(data.product, marketplace);
+      } catch (error) {
+        if (attempt < MAX_RETRIES) {
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+          this.logger.warn(
+            `Rainforest API ${label}: network error — retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
+          );
+          await this.sleep(delay);
+          continue;
+        }
+
+        this.logger.error(`Rainforest API ${label} failed after ${MAX_RETRIES} retries: ${error}`);
         return null;
       }
-
-      const data = (await res.json()) as RainforestResponse;
-
-      if (!data.request_info?.success || !data.product) {
-        this.logger.debug(`Rainforest API ${label}: no product returned`);
-        return null;
-      }
-
-      this.logger.debug(
-        `Rainforest API ${label}: OK (${data.request_info.credits_remaining} credits remaining)`,
-      );
-
-      return mapRainforestProduct(data.product, marketplace);
-    } catch (error) {
-      this.logger.error(`Rainforest API ${label} failed: ${error}`);
-      return null;
     }
+
+    return null;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private getDomain(marketplace: Marketplace): string {
