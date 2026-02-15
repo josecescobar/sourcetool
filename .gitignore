@@ -9,6 +9,9 @@ dist/
 out/
 *.tsbuildinfo
 
+# Generated Prisma client
+packages/db/generated/
+
 # Environment
 .env
 .env.local
