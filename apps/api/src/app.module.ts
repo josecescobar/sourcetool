@@ -18,6 +18,7 @@ import { EmailModule } from './modules/email/email.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SourcedProductsModule } from './modules/sourced-products/sourced-products.module';
 import { ProductWatchesModule } from './modules/product-watches/product-watches.module';
+import { SavedSearchesModule } from './modules/saved-searches/saved-searches.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ProductWatchesModule } from './modules/product-watches/product-watches.
     AnalyticsModule,
     SourcedProductsModule,
     ProductWatchesModule,
+    SavedSearchesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

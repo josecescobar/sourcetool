@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { Search, List } from 'lucide-react';
+import { Search, List, Bookmark, X, Clock } from 'lucide-react';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
+import { useSavedSearches } from '@/hooks/useSavedSearches';
 
 export default function ProductsPage() {
   const [query, setQuery] = useState('');
@@ -14,17 +15,26 @@ export default function ProductsPage() {
   const [error, setError] = useState('');
   const [buyListOpen, setBuyListOpen] = useState(false);
   const [buyListMessage, setBuyListMessage] = useState('');
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const { searches, fetchSearches, saveSearch, removeSearch } = useSavedSearches();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchSearches();
+  }, [fetchSearches]);
+
+  const runSearch = async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
     setLoading(true);
     setError('');
     setProduct(null);
     setAnalysis(null);
+    setQuery(searchQuery);
+    setLastSearchedQuery(searchQuery.trim());
 
     try {
-      const data = await apiClient.get(`/products/lookup?identifier=${encodeURIComponent(query.trim())}`);
+      const data = await apiClient.get(`/products/lookup?identifier=${encodeURIComponent(searchQuery.trim())}`);
       if (data.success) {
         setProduct(data.data);
       } else {
@@ -35,6 +45,18 @@ export default function ProductsPage() {
     }
     setLoading(false);
   };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch(query);
+  };
+
+  const handleSaveSearch = async () => {
+    if (!lastSearchedQuery) return;
+    await saveSearch({ query: lastSearchedQuery });
+  };
+
+  const isAlreadySaved = searches.some((s) => s.query === lastSearchedQuery);
 
   const handleCalculate = async () => {
     if (!product || !buyPrice) return;
@@ -61,10 +83,11 @@ export default function ProductsPage() {
       <h1 className="text-2xl font-bold mb-6">Product Lookup</h1>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-3 mb-8">
+      <form onSubmit={handleSearch} className="flex gap-3 mb-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
+            ref={searchInputRef}
             type="text" placeholder="Search by ASIN, UPC, EAN, or URL..."
             value={query} onChange={(e) => setQuery(e.target.value)}
             className="w-full rounded-lg border pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -74,7 +97,43 @@ export default function ProductsPage() {
           className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           {loading ? 'Searching...' : 'Search'}
         </button>
+        {lastSearchedQuery && !isAlreadySaved && (
+          <button type="button" onClick={handleSaveSearch}
+            className="flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors">
+            <Bookmark className="h-4 w-4" />
+            Save
+          </button>
+        )}
       </form>
+
+      {/* Saved Searches */}
+      {searches.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {searches.map((s) => (
+            <div key={s.id}
+              className="group flex items-center gap-1.5 rounded-full border bg-white px-3 py-1 text-sm hover:bg-gray-50 transition-colors">
+              <button
+                onClick={() => runSearch(s.query)}
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                <Clock className="h-3 w-3" />
+                <span>{s.query}</span>
+                {s.marketplace && (
+                  <span className="text-xs text-muted-foreground/60">({s.marketplace.replace('AMAZON_', '').replace('_', ' ')})</span>
+                )}
+              </button>
+              <button
+                onClick={() => removeSearch(s.id)}
+                className="ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!searches.length && <div className="mb-5" />}
 
       {error && <div className="mb-4 rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div>}
 
