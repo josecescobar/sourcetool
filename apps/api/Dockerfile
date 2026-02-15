@@ -61,6 +61,7 @@ COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/packages/ai/dist ./packages/ai/dist
 COPY --from=build /app/packages/ai/package.json ./packages/ai/
+COPY --from=build /app/packages/ai/node_modules ./packages/ai/node_modules
 
 # Copy Prisma schema + migrations for migrate deploy
 COPY --from=build /app/packages/db/prisma ./packages/db/prisma
