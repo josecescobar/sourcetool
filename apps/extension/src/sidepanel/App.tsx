@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { LoginForm } from './components/LoginForm';
+import { ProductHeader } from './components/ProductHeader';
 import { ProfitCalculator } from './components/ProfitCalculator';
-import { KeepaChart } from './components/KeepaChart';
+import { HistoryTab } from './components/HistoryTab';
+import { AlertsTab } from './components/AlertsTab';
 import { AIVerdict } from './components/AIVerdict';
-import { AlertsBadge } from './components/AlertsBadge';
-import { CompetitionTable } from './components/CompetitionTable';
-import { TrafficLight } from './components/TrafficLight';
+import { AddToBuyList } from './components/AddToBuyList';
 
 interface ProductData {
+  id?: string;
   asin?: string;
   title: string;
   price?: number;
@@ -15,72 +17,109 @@ interface ProductData {
   bsrCategory?: string;
   rating?: number;
   reviewCount?: number;
+  offerCount?: number;
   brand?: string;
+  category?: string;
   marketplace?: string;
+  listings?: Array<{
+    currentPrice?: number;
+    bsr?: number;
+    bsrCategory?: string;
+    rating?: number;
+    reviewCount?: number;
+    offerCount?: number;
+  }>;
 }
 
+type Tab = 'calculator' | 'history' | 'alerts';
+
 export function App() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [product, setProduct] = useState<ProductData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'calculator' | 'history' | 'competition'>('calculator');
+  const [activeTab, setActiveTab] = useState<Tab>('calculator');
+  const [showBuyList, setShowBuyList] = useState(false);
 
   useEffect(() => {
-    // Listen for product data from background
-    chrome.runtime.onMessage.addListener((message) => {
+    chrome.runtime.sendMessage({ type: 'CHECK_AUTH' }).then((res) => {
+      setAuthenticated(res?.authenticated ?? false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+
+    const listener = (message: any) => {
       if (message.type === 'PRODUCT_DATA') {
         setProduct(message.data);
       }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+
+    // Request current product on mount
+    chrome.runtime.sendMessage({ type: 'GET_CURRENT_PRODUCT' }).then((data) => {
+      if (data) setProduct(data);
     });
 
-    // Request current product data
-    chrome.runtime.sendMessage({ type: 'GET_CURRENT_PRODUCT' });
-  }, []);
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, [authenticated]);
 
-  if (!product) {
+  if (authenticated === null) {
     return (
-      <div style={{ padding: 20, textAlign: 'center', fontFamily: 'system-ui' }}>
-        <h2>SourceTool</h2>
-        <p>Navigate to a product page to analyze it.</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-sm text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
-  return (
-    <div style={{ fontFamily: 'system-ui', padding: 12 }}>
-      {/* Product Header */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        {product.imageUrl && <img src={product.imageUrl} alt="" style={{ width: 60, height: 60, objectFit: 'contain' }} />}
-        <div>
-          <h3 style={{ margin: 0, fontSize: 14, lineHeight: 1.3 }}>{product.title}</h3>
-          <p style={{ margin: '4px 0', fontSize: 12, color: '#666' }}>
-            {product.asin && `ASIN: ${product.asin}`} {product.brand && `| ${product.brand}`}
-          </p>
-        </div>
-      </div>
+  if (!authenticated) {
+    return <LoginForm onLoginSuccess={() => setAuthenticated(true)} />;
+  }
 
-      <TrafficLight />
-      <AlertsBadge />
+  if (!product) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+        <div className="text-lg font-bold text-primary mb-2">SourceTool</div>
+        <p className="text-sm text-muted-foreground">
+          Navigate to an Amazon product page to analyze it.
+        </p>
+      </div>
+    );
+  }
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'calculator', label: 'Calculator' },
+    { key: 'history', label: 'History' },
+    { key: 'alerts', label: 'Alerts' },
+  ];
+
+  return (
+    <div className="p-3 text-sm">
+      <ProductHeader product={product} onAddToBuyList={() => setShowBuyList(true)} />
+
+      {showBuyList && product.id && (
+        <AddToBuyList productId={product.id} onClose={() => setShowBuyList(false)} />
+      )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
-        {(['calculator', 'history', 'competition'] as const).map((tab) => (
+      <div className="flex gap-1 mb-3 border-b pb-2">
+        {tabs.map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '6px 12px', fontSize: 12, border: 'none', borderRadius: 4, cursor: 'pointer',
-              background: activeTab === tab ? '#3b82f6' : '#f3f4f6',
-              color: activeTab === tab ? '#fff' : '#333',
-            }}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              activeTab === tab.key
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-secondary'
+            }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {activeTab === 'calculator' && <ProfitCalculator product={product} />}
-      {activeTab === 'history' && <KeepaChart productId={product.asin} />}
-      {activeTab === 'competition' && <CompetitionTable product={product} />}
+      {activeTab === 'history' && <HistoryTab product={product} />}
+      {activeTab === 'alerts' && <AlertsTab product={product} />}
 
       <AIVerdict product={product} />
     </div>

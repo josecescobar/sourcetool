@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 
 interface Props {
-  product: { price?: number; asin?: string; marketplace?: string };
+  product: {
+    asin?: string;
+    price?: number;
+    marketplace?: string;
+    category?: string;
+    id?: string;
+    listings?: Array<{ currentPrice?: number }>;
+  };
 }
 
 export function ProfitCalculator({ product }: Props) {
@@ -9,17 +16,21 @@ export function ProfitCalculator({ product }: Props) {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+  const sellPrice = product.listings?.[0]?.currentPrice ?? product.price ?? 0;
+
   const calculate = async () => {
     setLoading(true);
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'CALCULATE_PROFIT',
         data: {
+          productId: product.id,
           asin: product.asin,
           marketplace: product.marketplace || 'AMAZON_US',
           fulfillmentType: 'FBA',
           buyPrice: parseFloat(buyPrice),
-          sellPrice: product.price || 0,
+          sellPrice,
+          category: product.category,
         },
       });
       setResult(response?.data);
@@ -29,33 +40,59 @@ export function ProfitCalculator({ product }: Props) {
     setLoading(false);
   };
 
+  const metrics = result
+    ? [
+        { label: 'Profit', value: `$${result.profit?.toFixed(2)}`, color: result.profit >= 0 ? 'text-green-600' : 'text-red-600' },
+        { label: 'ROI', value: `${result.roi?.toFixed(1)}%`, color: result.roi >= 30 ? 'text-green-600' : result.roi >= 0 ? 'text-yellow-600' : 'text-red-600' },
+        { label: 'Margin', value: `${result.margin?.toFixed(1)}%` },
+        { label: 'Total Fees', value: `$${result.fees?.totalFees?.toFixed(2)}` },
+        { label: 'Referral', value: `$${result.fees?.referralFee?.toFixed(2)}` },
+        { label: 'Fulfillment', value: `$${result.fees?.fulfillmentFee?.toFixed(2)}` },
+        { label: 'Storage', value: `$${result.fees?.storageFee?.toFixed(2)}` },
+        { label: 'Breakeven', value: `$${result.breakeven?.toFixed(2)}` },
+      ]
+    : [];
+
   return (
-    <div style={{ marginBottom: 12 }}>
-      <h4 style={{ margin: '0 0 8px', fontSize: 13 }}>Profit Calculator</h4>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <input
-          type="number"
-          placeholder="Buy Price"
-          value={buyPrice}
-          onChange={(e) => setBuyPrice(e.target.value)}
-          style={{ flex: 1, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
-        />
-        <button onClick={calculate} disabled={loading || !buyPrice}
-          style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13 }}>
-          {loading ? '...' : 'Calculate'}
-        </button>
+    <div className="mb-3">
+      <div className="flex gap-2 mb-2">
+        <div className="flex-1">
+          <label className="block text-xs text-muted-foreground mb-1">Buy Price</label>
+          <input
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            value={buyPrice}
+            onChange={(e) => setBuyPrice(e.target.value)}
+            className="w-full rounded-md border px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs text-muted-foreground mb-1">Sell Price</label>
+          <input
+            type="number"
+            disabled
+            value={sellPrice.toFixed(2)}
+            className="w-full rounded-md border px-2.5 py-1.5 text-sm bg-muted"
+          />
+        </div>
       </div>
+      <button
+        onClick={calculate}
+        disabled={loading || !buyPrice}
+        className="w-full rounded-md bg-primary py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {loading ? 'Calculating...' : 'Calculate Profit'}
+      </button>
 
       {result && (
-        <div style={{ background: '#f9fafb', padding: 8, borderRadius: 6, fontSize: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-            <span>Sell Price:</span><strong>${result.sellPrice?.toFixed(2)}</strong>
-            <span>Fees:</span><strong>${result.fees?.totalFees?.toFixed(2)}</strong>
-            <span>Profit:</span><strong style={{ color: result.profit >= 0 ? '#16a34a' : '#dc2626' }}>${result.profit?.toFixed(2)}</strong>
-            <span>ROI:</span><strong style={{ color: result.roi >= 30 ? '#16a34a' : result.roi >= 0 ? '#ca8a04' : '#dc2626' }}>{result.roi?.toFixed(1)}%</strong>
-            <span>Margin:</span><strong>{result.margin?.toFixed(1)}%</strong>
-            <span>Breakeven:</span><strong>${result.breakeven?.toFixed(2)}</strong>
-          </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {metrics.map(({ label, value, color }) => (
+            <div key={label} className="rounded-md bg-muted p-2">
+              <div className="text-xs text-muted-foreground">{label}</div>
+              <div className={`text-sm font-bold ${color || ''}`}>{value}</div>
+            </div>
+          ))}
         </div>
       )}
     </div>

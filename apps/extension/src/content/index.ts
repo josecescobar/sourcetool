@@ -44,6 +44,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       data: { identifier: message.data },
     });
   }
+  if (message.type === 'RESCRAPE') {
+    init();
+  }
 });
 
 // Initialize on page load
