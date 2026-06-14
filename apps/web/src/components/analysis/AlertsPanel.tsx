@@ -21,6 +21,7 @@ interface AlertsPanelProps {
     buyBoxPrice?: number;
     variationCount?: number;
     dimensions?: unknown;
+    isAmazonSelling?: boolean;
     flags?: Partial<Record<string, { value: string; tone?: AlertTone }>>;
   };
 }
@@ -32,7 +33,15 @@ interface AlertsPanelProps {
  */
 export function AlertsPanel({ product }: AlertsPanelProps) {
   const rows: AlertRow[] = [
-    flag('Amazon Share Buy Box', product.flags?.['amazonBuyBox']),
+    flag(
+      'Amazon Share Buy Box',
+      product.isAmazonSelling != null
+        ? {
+            value: product.isAmazonSelling ? 'Amazon on listing' : 'Never on listing',
+            tone: product.isAmazonSelling ? 'warn' : 'good',
+          }
+        : product.flags?.['amazonBuyBox']
+    ),
     flag('Private Label', product.flags?.['privateLabel']),
     flag('IP Analysis', product.flags?.['ipAnalysis']),
     flag(

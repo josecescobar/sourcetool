@@ -13,26 +13,36 @@ export interface Offer {
 
 interface OffersPanelProps {
   offers?: Offer[];
+  /** Aggregate counts from the listing, shown when per-seller rows aren't available. */
+  offerCount?: number;
+  fbaOfferCount?: number;
 }
 
 /** Live offers table (Seller / Stock / Price / Profit / ROI, FBA vs FBM/SFP). */
-export function OffersPanel({ offers }: OffersPanelProps) {
-  const fbaCount = offers?.filter((o) => o.fulfillment === 'FBA').length ?? 0;
+export function OffersPanel({ offers, offerCount, fbaOfferCount }: OffersPanelProps) {
+  const fbaCount = offers?.length
+    ? offers.filter((o) => o.fulfillment === 'FBA').length
+    : fbaOfferCount;
+  const totalCount = offers?.length ?? offerCount;
 
   return (
     <Panel
       title="Offers"
       right={
-        offers?.length ? (
+        totalCount != null ? (
           <span className="text-xs text-muted-foreground">
-            {offers.length} total · {fbaCount} FBA
+            {totalCount} total{fbaCount != null ? ` · ${fbaCount} FBA` : ''}
           </span>
         ) : undefined
       }
     >
       {!offers?.length ? (
         <p className="py-6 text-center text-sm text-muted-foreground">
-          No live offers available for this product.
+          {totalCount != null
+            ? `${totalCount} offer${totalCount === 1 ? '' : 's'} on this listing${
+                fbaCount != null ? ` (${fbaCount} FBA)` : ''
+              }. Per-seller breakdown not available yet.`
+            : 'No live offers available for this product.'}
         </p>
       ) : (
         <div className="overflow-x-auto">

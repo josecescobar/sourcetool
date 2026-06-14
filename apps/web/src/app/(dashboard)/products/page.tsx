@@ -236,7 +236,7 @@ export default function ProductsPage() {
             bsr={listing?.bsr ?? product.bsr}
             bsrTopPercent={product.bsrTopPercent}
             estSales={product.estimatedSales ?? null}
-            price={listing?.currentPrice}
+            price={listing?.buyBoxPrice ?? listing?.currentPrice}
             offerCount={listing?.offerCount}
             maxCost={maxCost}
             targetRoi={TARGET_ROI}
@@ -253,16 +253,28 @@ export default function ProductsPage() {
                   setAnalysisCtx(analysis ? { analysis, sellPrice } : null)
                 }
               />
-              <OffersPanel offers={product.offers} />
+              <OffersPanel
+                offers={product.offers}
+                offerCount={listing?.offerCount}
+                fbaOfferCount={listing?.fbaOfferCount}
+              />
             </div>
             <div className="space-y-4">
-              <AlertsPanel product={product} />
+              <AlertsPanel
+                product={{
+                  buyBoxPrice: listing?.buyBoxPrice,
+                  variationCount: product.variationCount,
+                  dimensions: product.dimensions,
+                  isAmazonSelling: listing?.isAmazonSelling,
+                }}
+              />
               <RanksPanel
                 bsr={listing?.bsr ?? product.bsr}
                 bsrTopPercent={product.bsrTopPercent}
-                buyBoxPrice={product.buyBoxPrice ?? listing?.currentPrice}
-                lowestFba={product.lowestFba}
-                lowestFbm={product.lowestFbm}
+                buyBoxPrice={listing?.buyBoxPrice ?? listing?.currentPrice}
+                offerCount={listing?.offerCount}
+                fbaOfferCount={listing?.fbaOfferCount}
+                isAmazonSelling={listing?.isAmazonSelling}
                 estTimeToSale={product.estTimeToSale}
               />
             </div>

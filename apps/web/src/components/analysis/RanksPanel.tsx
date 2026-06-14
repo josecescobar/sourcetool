@@ -6,8 +6,9 @@ interface RanksPanelProps {
   bsr?: number;
   bsrTopPercent?: number;
   buyBoxPrice?: number;
-  lowestFba?: number;
-  lowestFbm?: number;
+  offerCount?: number;
+  fbaOfferCount?: number;
+  isAmazonSelling?: boolean;
   estTimeToSale?: string;
 }
 
@@ -16,15 +17,17 @@ export function RanksPanel({
   bsr,
   bsrTopPercent,
   buyBoxPrice,
-  lowestFba,
-  lowestFbm,
+  offerCount,
+  fbaOfferCount,
+  isAmazonSelling,
   estTimeToSale,
 }: RanksPanelProps) {
   const rows: Array<[string, string]> = [
     ['BSR (Top %)', bsr != null ? `#${integer(bsr)}${bsrTopPercent != null ? ` (${bsrTopPercent}%)` : ''}` : '—'],
     ['Buy Box', money(buyBoxPrice)],
-    ['Lowest FBA', money(lowestFba)],
-    ['Lowest FBM', money(lowestFbm)],
+    ['Offers', offerCount != null ? integer(offerCount) : '—'],
+    ['FBA Offers', fbaOfferCount != null ? integer(fbaOfferCount) : '—'],
+    ['Amazon Selling', isAmazonSelling == null ? '—' : isAmazonSelling ? 'Yes' : 'No'],
     ['Est. Time to Sale', estTimeToSale || '—'],
   ];
 
