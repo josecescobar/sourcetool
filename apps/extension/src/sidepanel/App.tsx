@@ -6,6 +6,8 @@ import { HistoryTab } from './components/HistoryTab';
 import { AlertsTab } from './components/AlertsTab';
 import { AIVerdict } from './components/AIVerdict';
 import { AddToBuyList } from './components/AddToBuyList';
+import { ScanButton } from './components/ScanButton';
+import { ThemeToggle, applyStoredTheme } from './components/ThemeToggle';
 
 interface ProductData {
   id?: string;
@@ -38,6 +40,10 @@ export function App() {
   const [product, setProduct] = useState<ProductData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('calculator');
   const [showBuyList, setShowBuyList] = useState(false);
+
+  useEffect(() => {
+    applyStoredTheme();
+  }, []);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'CHECK_AUTH' }).then((res) => {
@@ -77,11 +83,18 @@ export function App() {
 
   if (!product) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
+      <div className="relative flex flex-col items-center justify-center min-h-screen p-6 text-center">
+        <div className="absolute top-3 right-3">
+          <ThemeToggle />
+        </div>
         <div className="text-lg font-bold text-primary mb-2">SourceTool</div>
-        <p className="text-sm text-muted-foreground">
-          Navigate to an Amazon product page to analyze it.
+        <p className="text-sm text-muted-foreground mb-4">
+          Navigate to an Amazon product page, or scan a shelf photo, barcode, or
+          a screenshot to analyze it.
         </p>
+        <div className="w-full max-w-[220px]">
+          <ScanButton />
+        </div>
       </div>
     );
   }
@@ -94,6 +107,14 @@ export function App() {
 
   return (
     <div className="p-3 text-sm">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-bold text-primary">SourceTool</span>
+        <div className="flex items-center gap-2">
+          <ScanButton variant="ghost" />
+          <ThemeToggle />
+        </div>
+      </div>
+
       <ProductHeader product={product} onAddToBuyList={() => setShowBuyList(true)} />
 
       {showBuyList && product.id && (

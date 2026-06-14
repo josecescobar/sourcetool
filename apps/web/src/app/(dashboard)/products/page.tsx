@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Search, List, Bookmark, X, Clock, Columns3 } from 'lucide-react';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
+import { ScanImageButton } from '@/components/scan-image-button';
 import { useSavedSearches } from '@/hooks/useSavedSearches';
+import type { ExtractionResult } from '@sourcetool/shared';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -51,6 +53,22 @@ export default function ProductsPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     await runSearch(query);
+  };
+
+  const handleExtracted = (result: ExtractionResult) => {
+    setError('');
+    // Prefill the buy price from the retail price read off the image, mirroring
+    // SellerAmp's scan -> cost flow.
+    if (result.retailPriceCents != null) {
+      setBuyPrice((result.retailPriceCents / 100).toFixed(2));
+    }
+    const id = result.identifier?.value;
+    if (id) {
+      setQuery(id);
+      runSearch(id);
+    } else {
+      setError('No product identifier found in that image.');
+    }
   };
 
   const handleSaveSearch = async () => {
@@ -99,6 +117,7 @@ export default function ProductsPage() {
           className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           {loading ? 'Searching...' : 'Search'}
         </button>
+        <ScanImageButton onExtracted={handleExtracted} onError={(m) => setError(m)} />
         {lastSearchedQuery && !isAlreadySaved && (
           <button type="button" onClick={handleSaveSearch}
             className="flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors">

@@ -6,6 +6,7 @@ export type MessageType =
   | 'LOOKUP_PRODUCT'
   | 'CALCULATE_PROFIT'
   | 'GET_DEAL_SCORE'
+  | 'EXTRACT_IMAGE'
   | 'GET_HISTORY'
   | 'GET_BSR_HISTORY'
   | 'CHECK_ALERTS'
@@ -68,6 +69,8 @@ export class MessageRouter {
         return this.api.post('/analysis/calculate', message.data);
       case 'GET_DEAL_SCORE':
         return this.api.post('/ai/deal-score', message.data);
+      case 'EXTRACT_IMAGE':
+        return this.api.post('/ai/extract-image', message.data);
       case 'GET_HISTORY':
         return this.api.get(`/history/price/${message.data.productId}?days=${message.data.days || 90}`);
       case 'GET_BSR_HISTORY':

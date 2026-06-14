@@ -94,10 +94,24 @@ in `apps/web`). Discard the mock dashboard — `apps/web` already does it for re
   - Verified: `pnpm typecheck` passes for `shared`, `ai`, `api`.
   Remaining (Stage 4): client-side image resize (`prepareImage`, canvas) + the
   upload UI, then feed the result into the existing lookup/analysis pipeline.
-- **Stage 4 — Extension UI.** Rebuild the richer sidepanel in `apps/extension`
-  (theming, tabbed UI, batch dropzone, charts) wired to the Stage 3 endpoints —
-  not to direct third-party calls.
-- **Stage 5 — Retire.** Once parity is reached, delete `selleramp-killer`.
+- **Stage 4 — Image-scan UI + extension polish. ✅ DONE.**
+  - **Web** (`apps/web`): `lib/image-prep.ts` (canvas resize → base64) +
+    `components/scan-image-button.tsx`, wired into the Product Lookup page. A
+    "Scan image" button next to Search runs `/ai/extract-image`, then looks up
+    the detected identifier and prefills the buy price from the read retail
+    price (mirrors SellerAmp's scan → cost flow). `pnpm typecheck` green.
+  - **Extension** (`apps/extension`): `lib/image-prep.ts`, `ScanButton`, and a
+    new `EXTRACT_IMAGE` background route; scan available in the empty state and
+    the top bar (scan → `PRODUCT_DETECTED` → panel updates). Added a **dark
+    theme** (`.dark` CSS vars + `ThemeToggle`, persisted to `chrome.storage`),
+    closing the theming gap vs selleramp-killer. `webpack` build succeeds.
+  - Note: `apps/web` `next build` can't run in the offline sandbox (next/font
+    can't fetch Inter from Google Fonts) — unrelated to these changes; typecheck
+    passes. The richer charts/offers/batch UI remain in §8 backlog.
+- **Stage 5 — Retire `selleramp-killer`.** Everything unique is now in
+  sourcetool: marketing (`apps/marketing`), image extraction (api + both UIs),
+  and the feature backlog (§8). Safe to delete `selleramp-killer` — the last of
+  the six repos to retire, leaving `sourcetool` as the single repo.
 
 ## 7. End state
 
