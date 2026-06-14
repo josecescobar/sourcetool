@@ -81,13 +81,19 @@ in `apps/web`). Discard the mock dashboard — `apps/web` already does it for re
   product/analysis/ai/marketplace types. selleramp-killer's versions are simpler
   client-side reimplementations — porting them would regress quality. **Nothing
   to move.** The only true gap is image extraction (Stage 3).
-- **Stage 3 — Image/batch extraction (the one real feature gap).** sourcetool's
-  `bulk-scan` is CSV-only with no vision. Port selleramp-killer's Claude-vision
-  extraction (shelf photo / screenshot → ASIN/UPC/price). Architecture
-  reconciliation: image resize (`prepareImage`, canvas) stays client-side; the
-  Claude call moves **server-side** into a new endpoint using the existing
-  `packages/ai` Anthropic provider (server holds the key), then feeds the
-  existing lookup/analysis pipeline.
+- **Stage 3 — Image/batch extraction (the one real feature gap). ✅ BACKEND DONE.**
+  sourcetool's `bulk-scan` was CSV-only with no vision. Ported selleramp-killer's
+  Claude-vision extraction server-side:
+  - `packages/shared/src/types/extraction.types.ts` — `ExtractionResult`,
+    `ImageExtractionInput`, `IdentifierKind` (shared across api/web/extension).
+  - `packages/ai` — `EXTRACTION_SYSTEM_PROMPT` + `extractProductFromImage()` /
+    `parseExtractionJson()`, using the existing Anthropic provider (server holds
+    the key; Claude Haiku vision).
+  - `apps/api` — `POST /ai/extract-image` (`{ base64, mediaType }` →
+    `ExtractionResult`) behind the existing auth/team/plan guards.
+  - Verified: `pnpm typecheck` passes for `shared`, `ai`, `api`.
+  Remaining (Stage 4): client-side image resize (`prepareImage`, canvas) + the
+  upload UI, then feed the result into the existing lookup/analysis pipeline.
 - **Stage 4 — Extension UI.** Rebuild the richer sidepanel in `apps/extension`
   (theming, tabbed UI, batch dropzone, charts) wired to the Stage 3 endpoints —
   not to direct third-party calls.
@@ -97,3 +103,44 @@ in `apps/web`). Discard the mock dashboard — `apps/web` already does it for re
 
 One repo — `sourcetool` — containing `apps/api`, `apps/web`, `apps/extension`,
 `apps/marketing`, and shared packages. The other five repos deleted.
+
+## 8. Competitive parity: SellerAmp SAS (the tool we're replacing)
+
+Mapped from screenshots of the SellerAmp SAS iOS app (v1.82i) provided by the
+owner. SourceTool's job is to match/beat these surfaces.
+
+| SellerAmp surface | What it does | SourceTool status |
+|------|------|------|
+| Barcode scan / camera | Scan UPC/EAN off shelf or packaging | ⚠️ Image extraction backend done (Stage 3); camera/upload UI = Stage 4 |
+| Speed Mode | Rapid multi-barcode scan, key data fast, "Full Analysis" on demand | ❌ Not built — **backlog** |
+| Text search / Share-menu | Look up by ASIN/UPC/EAN/keyword | ✅ Product lookup (3-provider chain) |
+| History | All past lookups, grouped by ASIN, filterable | ✅ `history` module + `saved-searches` |
+| Quick Info | BSR, Est. Sales, Max Cost at a glance | ✅ analysis + ai (sell-through) |
+| Profit Calculator | Cost/Sale, FBA·FBM, storage months, fees, ROI, breakeven, margin, est. payout | ✅ `analysis` engine + calculators |
+| Alerts panel | Buy Box share, Private Label, IP, Size, Meltable, Low-Price-Fee, Variations count | ⚠️ Partial — `alerts`/`product-watches` exist; some flags (IP, meltable, PL, variations count) are **backlog** |
+| Offers | Live offers table: Seller/Stock/Price/Profit/ROI, FBA vs SFP | ⚠️ `OfferHistory` model + history; dedicated offers table UI = backlog |
+| Charts | Amazon/FBA/FBM/Buy Box price, Sales Rank, Offer Count/Rating/Review, range toggles | ✅ web dashboard (Recharts) + Keepa data; extension charts = Stage 4 |
+| Ranks & Prices | BSR top %, lowest FBA/FBM, Keepa BSR drops, BB price changes, est. time-to-sale | ⚠️ Mostly covered by history/analysis; "Keepa BSR drops" / "time-to-sale" = backlog |
+| Profiles (×5) + Buying Criteria | Per-profile thresholds (Min/Max BSR, Min profit, Min ROI), additional costs, default time frames, fulfilment (FBA/FBM, EFN/Pan-EU), VAT | ⚠️ `settings`/`teams` exist; **profile-based buying-criteria schema is a notable gap → backlog** |
+| Notes & Tags | Per-product notes/tags | ❌ Backlog (small) |
+| Discount chips | 5–50% / 3-for-2 quick cost adjusters | ❌ Backlog (small) |
+| Google Sheets export | Push lookups to a sheet | ❌ Backlog; sourcetool has CSV/PDF export instead |
+| Seller Central actions | Add Product / Inventory / Orders shortcuts | ❌ Backlog (SP-API write actions) |
+
+**Keepa** (separate reference app shown): the price/BSR **data layer** — already
+integrated as a provider and powers history charts. Its **Product Finder**
+(filter-based product *discovery* by BSR/price/category/rank-drops) is a flow
+SourceTool does **not** have — a potential net-new "discovery" module (backlog).
+
+### Backlog distilled (post-consolidation feature ideas)
+
+1. Speed Mode — rapid multi-scan with deferred full analysis.
+2. Profile-based buying criteria (the engine behind Max Cost / deal verdicts).
+3. Richer alert flags: IP/meltable/private-label/variations-count.
+4. Offers table UI (FBA vs SFP) in extension + web.
+5. Keepa-style Product Finder (discovery by filters).
+6. Notes & tags, discount chips, Google Sheets export, Seller Central actions.
+7. Dark theme for `apps/extension` (selleramp-killer already had `ThemeContext`).
+
+These are **enhancements beyond consolidation** — tracked here so the SellerAmp
+screenshots aren't lost, but not required to retire `selleramp-killer`.

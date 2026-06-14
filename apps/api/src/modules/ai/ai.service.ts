@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { scoreDeal, predictSellThrough } from '@sourcetool/ai';
-import type { DealScoreInput, DealScoreOutput, SellThroughPrediction } from '@sourcetool/shared';
+import { scoreDeal, predictSellThrough, extractProductFromImage } from '@sourcetool/ai';
+import type {
+  DealScoreInput,
+  DealScoreOutput,
+  SellThroughPrediction,
+  ExtractionResult,
+  ImageExtractionInput,
+} from '@sourcetool/shared';
 
 @Injectable()
 export class AiService {
   async getDealScore(input: DealScoreInput): Promise<DealScoreOutput> {
     return scoreDeal(input);
+  }
+
+  async extractImage(input: ImageExtractionInput): Promise<ExtractionResult | null> {
+    return extractProductFromImage(input);
   }
 
   async getSellThrough(input: {

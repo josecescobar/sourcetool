@@ -5,6 +5,7 @@ export * from './types/ai.types';
 export * from './types/marketplace.types';
 export * from './types/team.types';
 export * from './types/api-response.types';
+export * from './types/extraction.types';
 
 // Constants
 export * from './constants/marketplaces';

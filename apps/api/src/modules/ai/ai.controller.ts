@@ -5,7 +5,7 @@ import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { PlanLimitGuard } from '../../common/guards/plan-limit.guard';
 import { RequireRole } from '../../common/decorators/require-role.decorator';
 import { PlanAction } from '../../common/decorators/plan-action.decorator';
-import type { DealScoreInput } from '@sourcetool/shared';
+import type { DealScoreInput, ImageExtractionInput } from '@sourcetool/shared';
 
 @UseGuards(JwtAuthGuard, TeamMemberGuard, PlanLimitGuard)
 @RequireRole('OWNER', 'ADMIN', 'VA')
@@ -17,6 +17,15 @@ export class AiController {
   @Post('deal-score')
   async dealScore(@Body() input: DealScoreInput) {
     return { success: true, data: await this.aiService.getDealScore(input) };
+  }
+
+  // Image-based product extraction (Claude vision): scan a shelf photo, barcode,
+  // or screenshot -> identifier/price/store, which then feeds the lookup pipeline.
+  // Counts against the ai_verdict plan action (no dedicated extraction quota yet).
+  @PlanAction('ai_verdict')
+  @Post('extract-image')
+  async extractImage(@Body() input: ImageExtractionInput) {
+    return { success: true, data: await this.aiService.extractImage(input) };
   }
 
   @PlanAction('ai_verdict')
