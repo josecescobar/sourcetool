@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-card: #1e2230;
+  --color-card-border: #2a2e3e;
+  --color-text-primary: #e8eaf0;
+  --color-text-muted: #8b90a0;
+  --color-text-dim: #5c6070;
+  --color-accent: #3b82f6;
+  --color-accent-glow: rgba(59, 130, 246, 0.15);
+  --color-purple: #8b5cf6;
+  --color-divider: #252836;
+  --color-brand: #e67e22;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-purple));
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.3), 0 0 48px rgba(139, 92, 246, 0.15);
+  transition: all 0.2s ease;
+}
+
+.btn-gradient:hover {
+  box-shadow: 0 0 32px rgba(59, 130, 246, 0.45), 0 0 64px rgba(139, 92, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  border: 1px solid var(--color-card-border);
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.06) 40%, transparent 70%);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+
+/* Dashboard light theme — scoped override */
+.dashboard-light {
+  --color-bg: #ffffff;
+  --color-surface: #f5f5f5;
+  --color-card: #ffffff;
+  --color-card-border: #dddddd;
+  --color-text-primary: #333333;
+  --color-text-muted: #555555;
+  --color-text-dim: #777777;
+  --color-accent: #337ab7;
+  --color-accent-glow: rgba(51, 122, 183, 0.1);
+  --color-purple: #337ab7;
+  --color-divider: #dddddd;
+}
+
+.dashboard-light .btn-gradient {
+  background: #337ab7;
+  box-shadow: none;
+}
+
+.dashboard-light .btn-gradient:hover {
+  background: #286090;
+  box-shadow: none;
+  transform: none;
+}
+
+.dashboard-light .gradient-text {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: #337ab7;
+  background-clip: unset;
+  color: #337ab7;
+}

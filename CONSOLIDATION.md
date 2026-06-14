@@ -68,9 +68,11 @@ in `apps/web`). Discard the mock dashboard — `apps/web` already does it for re
 
 ## 6. Staged migration plan
 
-- **Stage 1 — Marketing site (low risk, high value).** Bring selleramp-killer's
-  marketing pages into `apps/marketing`. No architecture conflict. Then drop
-  `selleramp-killer/website`.
+- **Stage 1 — Marketing site (low risk, high value). ✅ DONE.** Brought
+  selleramp-killer's marketing pages into `apps/marketing` (Next 15, Tailwind v4,
+  self-contained). Dropped the mock dashboard; repointed login/signup/Navbar to
+  the real app via `NEXT_PUBLIC_APP_URL` (`lib/app-url.ts`). `next build` passes
+  — 13 static routes. Remaining cleanup: drop `selleramp-killer/website` at Stage 5.
 - **Stage 2 — Shared logic.** Move architecture-agnostic logic into packages:
   eBay fee calculator → `packages/shared` (or `apps/api`), deal-scoring math →
   `packages/ai`, plus the richer TypeScript types (`offers`, `batch`, `deal`,
