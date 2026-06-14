@@ -73,13 +73,21 @@ in `apps/web`). Discard the mock dashboard — `apps/web` already does it for re
   self-contained). Dropped the mock dashboard; repointed login/signup/Navbar to
   the real app via `NEXT_PUBLIC_APP_URL` (`lib/app-url.ts`). `next build` passes
   — 13 static routes. Remaining cleanup: drop `selleramp-killer/website` at Stage 5.
-- **Stage 2 — Shared logic.** Move architecture-agnostic logic into packages:
-  eBay fee calculator → `packages/shared` (or `apps/api`), deal-scoring math →
-  `packages/ai`, plus the richer TypeScript types (`offers`, `batch`, `deal`,
-  `fees`).
-- **Stage 3 — Backend endpoints.** Add the capabilities the richer extension needs
-  but the server doesn't have yet: image-based extraction (Claude), eBay fee
-  endpoint, offers/variations on product lookup.
+- **Stage 2 — Shared logic. ⚠️ MOSTLY REDUNDANT (skipped).** Investigation
+  showed sourcetool already supersedes selleramp-killer's shared logic:
+  `apps/api/.../analysis/calculators` has table-driven Amazon FBA/FBM, **eBay**,
+  and Walmart calculators + fee tables; `packages/ai` has AI deal-scoring,
+  sell-through prediction, and verdict generation; `packages/shared` has the
+  product/analysis/ai/marketplace types. selleramp-killer's versions are simpler
+  client-side reimplementations — porting them would regress quality. **Nothing
+  to move.** The only true gap is image extraction (Stage 3).
+- **Stage 3 — Image/batch extraction (the one real feature gap).** sourcetool's
+  `bulk-scan` is CSV-only with no vision. Port selleramp-killer's Claude-vision
+  extraction (shelf photo / screenshot → ASIN/UPC/price). Architecture
+  reconciliation: image resize (`prepareImage`, canvas) stays client-side; the
+  Claude call moves **server-side** into a new endpoint using the existing
+  `packages/ai` Anthropic provider (server holds the key), then feeds the
+  existing lookup/analysis pipeline.
 - **Stage 4 — Extension UI.** Rebuild the richer sidepanel in `apps/extension`
   (theming, tabbed UI, batch dropzone, charts) wired to the Stage 3 endpoints —
   not to direct third-party calls.
