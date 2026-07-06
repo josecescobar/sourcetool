@@ -54,7 +54,7 @@ export class AnalyticsService {
         SUM(profit)::float as "totalProfit",
         AVG(roi)::float as "avgRoi",
         COUNT(*)::bigint as count
-      FROM "ProductAnalysis"
+      FROM "product_analyses"
       WHERE "teamId" = ${teamId}
         AND "createdAt" >= ${createdAt.gte}
         AND "createdAt" <= ${createdAt.lte}

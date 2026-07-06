@@ -1,4 +1,4 @@
-import { PrismaClient, PlanTier, TeamRole } from '@prisma/client';
+import { PrismaClient, PlanTier, TeamRole } from '../generated/client';
 
 const prisma = new PrismaClient();
 
