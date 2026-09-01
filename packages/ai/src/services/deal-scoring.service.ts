@@ -35,7 +35,12 @@ export async function scoreDeal(
     }
   } catch (error) {
     // If primary provider fails and we have a fallback, try it
-    if (provider === 'anthropic' && process.env.OPENAI_API_KEY) {
+    if (provider === 'vercel' && process.env.ANTHROPIC_API_KEY) {
+      responseText = await generateWithClaude(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
+        temperature: 0.2,
+        maxTokens: 512,
+      });
+    } else if (provider === 'anthropic' && process.env.OPENAI_API_KEY) {
       responseText = await generateWithOpenAI(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
         temperature: 0.2,
         maxTokens: 512,

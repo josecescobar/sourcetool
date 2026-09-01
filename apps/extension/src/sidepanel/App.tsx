@@ -59,7 +59,7 @@ export function App() {
       </div>
 
       <TrafficLight />
-      <AlertsBadge />
+      <AlertsBadge identifier={product.asin} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 8 }}>

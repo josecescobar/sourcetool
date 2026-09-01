@@ -42,8 +42,19 @@ export async function predictSellThrough(
       });
     }
   } catch (error) {
-    // Fallback to heuristic if AI fails
-    return heuristicSellThrough(input);
+    // If the Gateway call fails, try Anthropic before giving up to the heuristic.
+    if (provider === 'vercel' && process.env.ANTHROPIC_API_KEY) {
+      try {
+        responseText = await generateWithClaude(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
+          temperature: 0.3,
+          maxTokens: 256,
+        });
+      } catch {
+        return heuristicSellThrough(input);
+      }
+    } else {
+      return heuristicSellThrough(input);
+    }
   }
 
   return parseSellThroughResponse(responseText, input);

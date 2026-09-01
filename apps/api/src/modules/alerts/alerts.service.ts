@@ -26,4 +26,26 @@ export class AlertsService {
   async getByProductId(productId: string): Promise<any> {
     return prisma.alert.findMany({ where: { productId }, orderBy: { createdAt: 'desc' } });
   }
+
+  // Alerts on any product this team has looked up (via analysis), most recent first.
+  async getRecentForTeam(teamId: string, page = 1, limit = 20): Promise<any> {
+    const skip = (page - 1) * limit;
+    const where = { product: { analyses: { some: { teamId } } } };
+
+    const [alerts, total] = await Promise.all([
+      prisma.alert.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: { product: true },
+      }),
+      prisma.alert.count({ where }),
+    ]);
+
+    return {
+      data: alerts,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
 }

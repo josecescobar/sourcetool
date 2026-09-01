@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { prisma } from '@sourcetool/db';
 import { ProductsService } from '../products/products.service';
 import { AnalysisService } from '../analysis/analysis.service';
+import { AiService } from '../ai/ai.service';
 import type { Marketplace, FulfillmentType } from '@sourcetool/shared';
 
 interface CreateBulkScanInput {
@@ -19,6 +20,7 @@ export class BulkScanService {
   constructor(
     private productsService: ProductsService,
     private analysisService: AnalysisService,
+    private aiService: AiService,
   ) {}
 
   async create(teamId: string, userId: string, input: CreateBulkScanInput): Promise<any> {
@@ -211,11 +213,78 @@ export class BulkScanService {
       }
     }
 
+    // Generate an AI summary of the batch before marking complete, so it's
+    // ready by the time the frontend's next poll sees status COMPLETED.
+    const finalScan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
+    const aiSummary = finalScan ? await this.generateSummary(finalScan) : null;
+
     // Mark scan as completed
     await prisma.bulkScan.update({
       where: { id: scanId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
+      data: { status: 'COMPLETED', completedAt: new Date(), aiSummary },
     });
+  }
+
+  private async generateSummary(scan: {
+    id: string;
+    fileName: string;
+    marketplace: string;
+    fulfillmentType: string;
+    totalRows: number;
+    successRows: number;
+    failedRows: number;
+  }): Promise<string | null> {
+    try {
+      const successfulRows = await prisma.bulkScanRow.findMany({
+        where: { bulkScanId: scan.id, status: 'SUCCESS' },
+        include: { product: true, analysis: true },
+      });
+
+      const items = successfulRows
+        .filter((row) => row.analysis)
+        .map((row) => ({
+          title: row.product?.title ?? row.identifier,
+          profit: row.analysis!.profit,
+          roi: row.analysis!.roi,
+        }));
+
+      if (items.length === 0) {
+        return null;
+      }
+
+      const avgRoi = items.reduce((sum, i) => sum + i.roi, 0) / items.length;
+      const avgProfit = items.reduce((sum, i) => sum + i.profit, 0) / items.length;
+      const profitableCount = items.filter((i) => i.profit > 0).length;
+      const strongBuyCount = items.filter((i) => i.roi >= 30).length;
+
+      const topWinners = items
+        .filter((i) => i.profit > 0)
+        .sort((a, b) => b.profit - a.profit)
+        .slice(0, 5);
+      const topLosers = items
+        .filter((i) => i.profit < 0)
+        .sort((a, b) => a.profit - b.profit)
+        .slice(0, 5);
+
+      return await this.aiService.getBulkScanSummary({
+        fileName: scan.fileName,
+        marketplace: scan.marketplace,
+        fulfillmentType: scan.fulfillmentType,
+        totalRows: scan.totalRows,
+        successRows: scan.successRows,
+        failedRows: scan.failedRows,
+        avgRoi,
+        avgProfit,
+        profitableCount,
+        strongBuyCount,
+        topWinners,
+        topLosers,
+      });
+    } catch (err: any) {
+      // Never let a summary failure block the scan from completing.
+      this.logger.warn(`Failed to generate AI summary for scan ${scan.id}: ${err.message}`);
+      return null;
+    }
   }
 
   private delay(ms: number): Promise<void> {

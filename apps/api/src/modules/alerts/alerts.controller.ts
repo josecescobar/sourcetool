@@ -1,11 +1,28 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('alerts')
 export class AlertsController {
   constructor(private alertsService: AlertsService) {}
+
+  @Get()
+  async getRecent(
+    @CurrentUser('teamId') teamId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<any> {
+    return {
+      success: true,
+      data: await this.alertsService.getRecentForTeam(
+        teamId,
+        page ? parseInt(page, 10) : undefined,
+        limit ? parseInt(limit, 10) : undefined,
+      ),
+    };
+  }
 
   @Get('check/:identifier')
   async check(@Param('identifier') identifier: string): Promise<any> {
