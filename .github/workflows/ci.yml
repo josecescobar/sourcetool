@@ -14,16 +14,19 @@ jobs:
   lint-typecheck:
     name: Lint & Type Check
     runs-on: ubuntu-latest
+    env:
+      # prisma generate only needs this to be a well-formed value at schema-load
+      # time — it never connects to it during typecheck/build.
+      DATABASE_URL: postgresql://sourcetool:sourcetool@localhost:5432/sourcetool_test?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @sourcetool/db run db:generate
       - run: pnpm turbo typecheck
       - run: pnpm turbo lint
 
@@ -61,13 +64,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @sourcetool/db run db:generate
       - run: pnpm turbo build --filter=@sourcetool/shared --filter=@sourcetool/db
       - run: cd packages/db && npx prisma db push
       - run: pnpm turbo test
@@ -75,14 +77,17 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      # prisma generate only needs this to be a well-formed value at schema-load
+      # time — it never connects to it during typecheck/build.
+      DATABASE_URL: postgresql://sourcetool:sourcetool@localhost:5432/sourcetool_test?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @sourcetool/db run db:generate
       - run: pnpm turbo build
