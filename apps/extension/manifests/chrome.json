@@ -5,6 +5,7 @@
   "description": "AI-native product sourcing for Amazon FBA, Walmart & eBay resellers",
   "permissions": [
     "activeTab",
+    "tabs",
     "sidePanel",
     "storage",
     "contextMenus",
@@ -40,7 +41,6 @@
         "*://*.ebay.co.uk/itm/*"
       ],
       "js": ["content.js"],
-      "css": ["content.css"],
       "run_at": "document_idle"
     }
   ],

@@ -89,6 +89,51 @@ export class BuyListsService {
     });
   }
 
+  async addItemsBatch(
+    listId: string,
+    teamId: string,
+    items: Array<{ productId: string; analysisId?: string; notes?: string }>,
+  ) {
+    const list = await prisma.buyList.findFirst({
+      where: { id: listId, teamId },
+    });
+    if (!list) throw new NotFoundException('Buy list not found');
+
+    const existing = await prisma.buyListItem.findMany({
+      where: {
+        buyListId: listId,
+        productId: { in: items.map((i) => i.productId) },
+      },
+      select: { productId: true },
+    });
+    const existingIds = new Set(existing.map((e: { productId: string }) => e.productId));
+
+    const toAdd = items.filter((i) => !existingIds.has(i.productId));
+
+    const created = await prisma.$transaction(
+      toAdd.map((item) =>
+        prisma.buyListItem.create({
+          data: {
+            buyListId: listId,
+            productId: item.productId,
+            analysisId: item.analysisId,
+            notes: item.notes,
+          },
+          include: {
+            product: { include: { listings: true } },
+            analysis: true,
+          },
+        }),
+      ),
+    );
+
+    return {
+      added: created.length,
+      skipped: items.length - created.length,
+      items: created,
+    };
+  }
+
   async removeItem(listId: string, itemId: string, teamId: string) {
     const list = await prisma.buyList.findFirst({
       where: { id: listId, teamId },

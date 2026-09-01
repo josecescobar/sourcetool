@@ -25,30 +25,35 @@ export function App() {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 16 }}>
-      <h2 style={{ margin: '0 0 12px', fontSize: 18, color: '#3b82f6' }}>SourceTool</h2>
+    <div className="p-4">
+      <h2 className="text-lg font-bold text-primary mb-3">SourceTool</h2>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="flex gap-2 mb-4">
         <input
           type="text"
           placeholder="ASIN, UPC, EAN, or URL"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          style={{ flex: 1, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13 }}
+          className="flex-1 rounded-md border px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
-        <button onClick={lookup} disabled={loading}
-          style={{ padding: '8px 14px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+        <button
+          onClick={lookup}
+          disabled={loading}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
           {loading ? '...' : 'Go'}
         </button>
       </div>
 
       {result && (
-        <div style={{ background: '#f9fafb', padding: 12, borderRadius: 8 }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>{result.title}</h3>
-          {result.asin && <p style={{ margin: '2px 0', fontSize: 12, color: '#666' }}>ASIN: {result.asin}</p>}
+        <div className="rounded-lg bg-muted p-3">
+          <h3 className="text-sm font-semibold mb-1 line-clamp-2">{result.title}</h3>
+          {result.asin && (
+            <p className="text-xs text-muted-foreground">ASIN: {result.asin}</p>
+          )}
           {result.listings?.[0]?.currentPrice && (
-            <p style={{ margin: '2px 0', fontSize: 14, fontWeight: 'bold' }}>${result.listings[0].currentPrice.toFixed(2)}</p>
+            <p className="text-sm font-bold mt-1">${result.listings[0].currentPrice.toFixed(2)}</p>
           )}
         </div>
       )}

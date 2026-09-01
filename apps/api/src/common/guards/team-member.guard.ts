@@ -13,9 +13,16 @@ export class TeamMemberGuard implements CanActivate {
       context.getClass(),
     ]);
 
+    // No @RequireRole decorator — pass through
+    if (!requiredRoles) return true;
+
     const request = context.switchToHttp().getRequest();
     const userId = request.user?.id;
-    const teamId = request.params?.teamId || request.body?.teamId || request.query?.teamId;
+    const teamId =
+      request.params?.teamId ||
+      request.body?.teamId ||
+      request.query?.teamId ||
+      request.user?.teamId;
 
     if (!userId || !teamId) {
       throw new ForbiddenException('Team context required');
@@ -29,7 +36,7 @@ export class TeamMemberGuard implements CanActivate {
       throw new ForbiddenException('Not a member of this team');
     }
 
-    if (requiredRoles && !requiredRoles.includes(member.role)) {
+    if (!requiredRoles.includes(member.role)) {
       throw new ForbiddenException('Insufficient role');
     }
 

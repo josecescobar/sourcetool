@@ -3,14 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search } from 'lucide-react';
+import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search, ShoppingBag, Columns3 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/contexts/auth-context';
+import { usePermissions } from '@/hooks/usePermissions';
 import { EmailVerificationBanner } from '@/components/email-verification-banner';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 
-const navItems = [
+const allNavItems = [
   { href: '/products', label: 'Products', icon: Search },
+  { href: '/compare', label: 'Compare', icon: Columns3 },
   { href: '/bulk-scan', label: 'Bulk Scan', icon: Upload },
   { href: '/buy-list', label: 'Buy List', icon: List },
+  { href: '/sourced-products', label: 'Sourced', icon: ShoppingBag },
   { href: '/performance', label: 'Performance', icon: BarChart3 },
   { href: '/alerts', label: 'Alerts', icon: ShieldAlert },
   { href: '/team', label: 'Team', icon: Users },
@@ -20,7 +25,9 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading, logout } = useAuth();
+  const { canAccessAnalytics, canAccessSourced, canManageWatches } = usePermissions();
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -28,19 +35,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
       return;
     }
-
-    apiClient.get('/auth/me').then((data) => {
-      if (data.success) {
-        setUser(data.data);
-      }
-    }).catch(() => {});
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    router.push('/login');
-  };
+  useEffect(() => {
+    if (!user) return;
+    if (canManageWatches) {
+      apiClient.get('/product-watches/alerts/count').then((data) => {
+        if (data.success) setAlertCount(data.data.count);
+      }).catch(() => {});
+    }
+  }, [user, canManageWatches]);
+
+  const navItems = allNavItems.filter(({ href }) => {
+    if (href === '/performance' && !canAccessAnalytics) return false;
+    if (href === '/sourced-products' && !canAccessSourced) return false;
+    return true;
+  });
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -63,12 +73,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }`}>
               <Icon className="h-4 w-4" />
               {label}
+              {href === '/alerts' && alertCount > 0 && (
+                <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                  {alertCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
 
         <div className="border-t p-3">
-          <button onClick={handleLogout}
+          <button onClick={logout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
             <LogOut className="h-4 w-4" />
             Log Out
@@ -81,6 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {user && !user.emailVerified && !user.googleId && <EmailVerificationBanner />}
         {children}
       </main>
+      <UpgradePrompt />
     </div>
   );
 }

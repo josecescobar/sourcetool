@@ -7,14 +7,15 @@ dist/
 .next/
 .turbo/
 out/
+*.tsbuildinfo
+
+# Generated Prisma client
+packages/db/generated/
 
 # Environment
 .env
 .env.local
 .env.*.local
-
-# Database
-packages/db/prisma/migrations/
 
 # IDE
 .vscode/

@@ -1,10 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { prisma, AlertType } from '@sourcetool/db';
 import { detectIdentifier } from '@sourcetool/shared';
 import type { Marketplace } from '@sourcetool/shared';
-import { RainforestService } from '../integrations/rainforest/rainforest.service';
+import { ProductDataChainService } from '../integrations/product-data-chain.service';
 import { STALENESS_THRESHOLD_MS } from '../integrations/rainforest/rainforest.constants';
 import type { ExternalProductData } from '../integrations/interfaces/product-data-provider.interface';
+import { ProductWatchesService } from '../product-watches/product-watches.service';
 import { AiService } from '../ai/ai.service';
 import { isOversizeDimensions } from '../analysis/fee-tables/amazon-storage-fees';
 
@@ -13,7 +14,8 @@ export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
 
   constructor(
-    private rainforest: RainforestService,
+    private productDataChain: ProductDataChainService,
+    private productWatches: ProductWatchesService,
     private aiService: AiService,
   ) {}
 
@@ -104,6 +106,41 @@ export class ProductsService {
     return { product, listings };
   }
 
+  async compare(asins: string[], teamId: string): Promise<any> {
+    const unique = [...new Set(asins.map((a) => a.trim().toUpperCase()))];
+    if (unique.length < 2 || unique.length > 3) {
+      throw new BadRequestException('Provide 2 or 3 ASINs to compare');
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const products = await Promise.all(
+      unique.map(async (asin) => {
+        const product = await this.lookup(asin);
+        const listing = product.listings?.[0] || null;
+
+        const [analysis, priceHistory, bsrHistory] = await Promise.all([
+          prisma.productAnalysis.findFirst({
+            where: { productId: product.id, teamId },
+            orderBy: { createdAt: 'desc' },
+          }),
+          prisma.priceHistory.findMany({
+            where: { productId: product.id, recordedAt: { gte: thirtyDaysAgo } },
+            orderBy: { recordedAt: 'asc' },
+          }),
+          prisma.bsrHistory.findMany({
+            where: { productId: product.id, recordedAt: { gte: thirtyDaysAgo } },
+            orderBy: { recordedAt: 'asc' },
+          }),
+        ]);
+
+        return { product, listing, analysis, priceHistory, bsrHistory };
+      }),
+    );
+
+    return { products };
+  }
+
   // ─── Private helpers ──────────────────────────────────────────────
 
   private async fetchFromExternal(
@@ -112,9 +149,9 @@ export class ProductsService {
     marketplace: Marketplace,
   ): Promise<ExternalProductData | null> {
     if (type === 'ASIN') {
-      return this.rainforest.getByAsin(value, marketplace);
+      return this.productDataChain.getByAsin(value, marketplace);
     }
-    return this.rainforest.searchByBarcode(value, type, marketplace);
+    return this.productDataChain.searchByBarcode(value, type, marketplace);
   }
 
   private async persistExternalProduct(
@@ -182,6 +219,17 @@ export class ProductsService {
         },
       });
 
+      // Record history and check watches (fire-and-forget)
+      this.recordHistoryAndCheckWatches(
+        product.id,
+        data.listing.marketplace,
+        data.listing.currentPrice,
+        data.listing.buyBoxPrice,
+        data.listing.bsr,
+        data.listing.bsrCategory,
+      ).catch((err) => {
+        this.logger.error(`History/watch check failed: ${err}`);
+      });
     }
 
     await this.generateAlertsIfNeeded(product);
@@ -292,5 +340,30 @@ export class ProductsService {
   private isStale(lastFetchedAt: Date | null | undefined): boolean {
     if (!lastFetchedAt) return true;
     return Date.now() - lastFetchedAt.getTime() > STALENESS_THRESHOLD_MS;
+  }
+
+  private async recordHistoryAndCheckWatches(
+    productId: string,
+    marketplace: Marketplace,
+    currentPrice: number | undefined,
+    buyBoxPrice: number | undefined,
+    bsr: number | undefined,
+    bsrCategory: string | undefined,
+  ) {
+    const now = new Date();
+
+    if (currentPrice != null) {
+      await prisma.priceHistory.create({
+        data: { productId, marketplace, price: currentPrice, buyBoxPrice, recordedAt: now },
+      });
+    }
+
+    if (bsr != null && bsrCategory) {
+      await prisma.bsrHistory.create({
+        data: { productId, marketplace, bsr, category: bsrCategory, recordedAt: now },
+      });
+    }
+
+    await this.productWatches.checkProduct(productId, marketplace, currentPrice, bsr);
   }
 }

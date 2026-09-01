@@ -2,8 +2,11 @@ import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/co
 import { AlertsService } from './alerts.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('alerts')
 export class AlertsController {
   constructor(private alertsService: AlertsService) {}

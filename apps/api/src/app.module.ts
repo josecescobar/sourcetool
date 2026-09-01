@@ -15,6 +15,11 @@ import { ExportModule } from './modules/export/export.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { BuyListsModule } from './modules/buy-lists/buy-lists.module';
 import { EmailModule } from './modules/email/email.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { SourcedProductsModule } from './modules/sourced-products/sourced-products.module';
+import { ProductWatchesModule } from './modules/product-watches/product-watches.module';
+import { SavedSearchesModule } from './modules/saved-searches/saved-searches.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -35,6 +40,11 @@ import { EmailModule } from './modules/email/email.module';
     ExportModule,
     BillingModule,
     BuyListsModule,
+    AnalyticsModule,
+    SourcedProductsModule,
+    ProductWatchesModule,
+    SavedSearchesModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -14,6 +14,12 @@ class ApiClient {
     return headers;
   }
 
+  private handlePlanLimit(data: any) {
+    if (data?.error === 'Plan limit reached' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('plan-limit-reached', { detail: data }));
+    }
+  }
+
   async get(path: string) {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       headers: this.getHeaders(),
@@ -25,6 +31,12 @@ class ApiClient {
         headers: this.getHeaders(),
       });
       return retryResponse.json();
+    }
+
+    if (response.status === 403) {
+      const data = await response.json();
+      this.handlePlanLimit(data);
+      return data;
     }
 
     return response.json();
@@ -45,6 +57,12 @@ class ApiClient {
         body: body ? JSON.stringify(body) : undefined,
       });
       return retryResponse.json();
+    }
+
+    if (response.status === 403) {
+      const data = await response.json();
+      this.handlePlanLimit(data);
+      return data;
     }
 
     return response.json();

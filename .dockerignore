@@ -1,0 +1,14 @@
+node_modules
+.git
+.gitignore
+.env
+.env.*
+*.md
+!DEPLOY.md
+.next
+dist
+.turbo
+.cache
+*.log
+.DS_Store
+apps/extension

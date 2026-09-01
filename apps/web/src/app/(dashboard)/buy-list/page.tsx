@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, X, Pencil, Check, List } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Plus, Trash2, X, Pencil, Check, List, Columns3 } from 'lucide-react';
 import { useBuyLists } from '@/hooks/useBuyLists';
 
 export default function BuyListPage() {
@@ -18,11 +19,13 @@ export default function BuyListPage() {
     removeItem,
   } = useBuyLists();
 
+  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const newInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,6 +58,34 @@ export default function BuyListPage() {
     await deleteList(id);
     setDeleteConfirm(null);
   };
+
+  const itemsWithAsin = (activeList?.items || []).filter((item: any) => item.product?.asin);
+
+  const toggleRow = (id: string) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedRows.size === itemsWithAsin.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(itemsWithAsin.map((i: any) => i.id)));
+    }
+  };
+
+  const selectedAsins = (activeList?.items || [])
+    .filter((item: any) => selectedRows.has(item.id) && item.product?.asin)
+    .map((item: any) => item.product.asin);
+
+  // Clear selection when switching lists
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [activeList?.id]);
 
   return (
     <div>
@@ -221,6 +252,30 @@ export default function BuyListPage() {
                 </div>
               </div>
 
+              {selectedRows.size > 0 && (
+                <div className="px-6 py-3 border-b bg-blue-50 flex items-center gap-4 text-sm">
+                  <span className="font-medium">{selectedRows.size} selected</span>
+                  {selectedAsins.length >= 2 && selectedAsins.length <= 3 && (
+                    <button
+                      onClick={() => router.push(`/compare?asins=${selectedAsins.join(',')}`)}
+                      className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                    >
+                      <Columns3 className="h-3.5 w-3.5" />
+                      Compare Selected
+                    </button>
+                  )}
+                  {(selectedAsins.length < 2 || selectedAsins.length > 3) && (
+                    <span className="text-xs text-muted-foreground">Select 2-3 items to compare</span>
+                  )}
+                  <button
+                    onClick={() => setSelectedRows(new Set())}
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
               {activeList.items?.length === 0 ? (
                 <div className="p-12 text-center">
                   <p className="text-muted-foreground">
@@ -232,6 +287,14 @@ export default function BuyListPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-gray-50">
+                        <th className="px-4 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={itemsWithAsin.length > 0 && selectedRows.size === itemsWithAsin.length}
+                            onChange={toggleAll}
+                            className="rounded"
+                          />
+                        </th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground">Product</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground">ASIN</th>
                         <th className="text-right px-4 py-3 font-medium text-muted-foreground">Price</th>
@@ -249,6 +312,18 @@ export default function BuyListPage() {
 
                         return (
                           <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50">
+                            <td className="px-4 py-3">
+                              {item.product?.asin ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.has(item.id)}
+                                  onChange={() => toggleRow(item.id)}
+                                  className="rounded"
+                                />
+                              ) : (
+                                <span />
+                              )}
+                            </td>
                             <td className="px-4 py-3 max-w-[250px]">
                               <div className="flex items-center gap-2">
                                 {item.product?.imageUrl && (

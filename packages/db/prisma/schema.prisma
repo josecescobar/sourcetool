@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/client"
 }
 
 datasource db {
@@ -79,6 +80,13 @@ enum TokenType {
   PASSWORD_RESET
 }
 
+enum WatchType {
+  PRICE_BELOW
+  PRICE_ABOVE
+  BSR_BELOW
+  BSR_ABOVE
+}
+
 // ─── Models ──────────────────────────────────────────────────────────
 
 model User {
@@ -108,6 +116,7 @@ model Team {
   createdAt DateTime @default(now())
 
   members        TeamMember[]
+  teamInvites    TeamInvite[]
   subscription   Subscription?
   usageRecords   UsageRecord[]
   analyses       ProductAnalysis[]
@@ -116,6 +125,8 @@ model Team {
   buyLists       BuyList[]
   savedSearches  SavedSearch[]
   apiKeys        ApiKey[]
+  productWatches ProductWatch[]
+  watchAlerts    WatchAlert[]
 
   @@map("teams")
 }
@@ -133,6 +144,23 @@ model TeamMember {
 
   @@unique([teamId, userId])
   @@map("team_members")
+}
+
+model TeamInvite {
+  id        String   @id @default(cuid())
+  teamId    String
+  email     String
+  role      TeamRole @default(VA)
+  token     String   // SHA-256 hash of raw token
+  invitedBy String   // userId of who sent the invite
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, email])
+  @@index([token])
+  @@map("team_invites")
 }
 
 model Subscription {
@@ -190,6 +218,8 @@ model Product {
   sourcedProducts SourcedProduct[]
   buyListItems   BuyListItem[]
   bulkScanRows   BulkScanRow[]
+  productWatches ProductWatch[]
+  watchAlerts    WatchAlert[]
 
   @@index([upc])
   @@index([ean])
@@ -451,4 +481,43 @@ model VerificationToken {
 
   @@index([identifier, type])
   @@map("verification_tokens")
+}
+
+model ProductWatch {
+  id            String      @id @default(cuid())
+  teamId        String
+  productId     String
+  marketplace   Marketplace
+  watchType     WatchType
+  threshold     Float
+  enabled       Boolean     @default(true)
+  lastCheckedAt DateTime?
+  createdAt     DateTime    @default(now())
+
+  team    Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  alerts  WatchAlert[]
+
+  @@index([teamId, enabled])
+  @@map("product_watches")
+}
+
+model WatchAlert {
+  id            String    @id @default(cuid())
+  watchId       String
+  teamId        String
+  productId     String
+  watchType     WatchType
+  previousValue Float
+  currentValue  Float
+  threshold     Float
+  read          Boolean   @default(false)
+  triggeredAt   DateTime  @default(now())
+
+  watch   ProductWatch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+  team    Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, read, triggeredAt(sort: Desc)])
+  @@map("watch_alerts")
 }

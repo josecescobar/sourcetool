@@ -33,4 +33,23 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // Open side panel when extension icon is clicked (where supported)
 chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
 
+// When user switches tabs, ask content script to re-scrape
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab.url && (tab.url.includes('amazon.') || tab.url.includes('walmart.') || tab.url.includes('ebay.'))) {
+      chrome.tabs.sendMessage(activeInfo.tabId, { type: 'RESCRAPE' }).catch(() => {});
+    }
+  } catch {}
+});
+
+// When URL changes within a tab, re-trigger detection
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    if (tab.url.includes('amazon.') || tab.url.includes('walmart.') || tab.url.includes('ebay.')) {
+      chrome.tabs.sendMessage(tabId, { type: 'RESCRAPE' }).catch(() => {});
+    }
+  }
+});
+
 console.log('SourceTool service worker initialized');

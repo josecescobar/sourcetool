@@ -1,38 +1,77 @@
-FROM node:20-alpine AS base
+# ── Build stage ──────────────────────────────────
+FROM node:20-slim AS build
 
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
-# Copy workspace config
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY turbo.json ./
+# Copy workspace root files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 
-# Copy package.json files for all workspaces
-COPY apps/api/package.json ./apps/api/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/db/package.json ./packages/db/
-COPY packages/ai/package.json ./packages/ai/
-COPY tooling/tsconfig/package.json ./tooling/tsconfig/
-COPY tooling/eslint-config/package.json ./tooling/eslint-config/
+# Copy package.json files for workspace resolution
+COPY apps/api/package.json apps/api/
+COPY apps/api/nest-cli.json apps/api/
+COPY apps/api/tsconfig.json apps/api/
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+COPY packages/ai/package.json packages/ai/
+COPY tooling/tsconfig/ tooling/tsconfig/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+# Install all dependencies (including devDependencies for build)
+RUN pnpm install --frozen-lockfile
 
-# Copy source
-COPY tooling ./tooling
-COPY packages ./packages
-COPY apps/api ./apps/api
+# Copy source code
+COPY packages/db/ packages/db/
+COPY packages/shared/ packages/shared/
+COPY packages/ai/ packages/ai/
+COPY apps/api/ apps/api/
 
-# Generate Prisma client
-RUN cd packages/db && npx prisma generate || true
+# Generate Prisma client and build all packages
+RUN pnpm --filter @sourcetool/db run db:generate
+RUN pnpm --filter @sourcetool/db run build
+RUN pnpm --filter @sourcetool/shared run build
+RUN pnpm --filter @sourcetool/ai run build
+RUN pnpm --filter @sourcetool/api run build
 
-# Build
-RUN pnpm --filter @sourcetool/shared build || true
-RUN pnpm --filter @sourcetool/db build || true
-RUN pnpm --filter @sourcetool/ai build || true
-RUN pnpm --filter @sourcetool/api build || true
+# Prune dev dependencies
+RUN pnpm prune --prod
 
-EXPOSE 3001
+# ── Production stage ─────────────────────────────
+FROM node:20-slim AS production
 
-CMD ["node", "apps/api/dist/main.js"]
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace structure with production deps
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./
+
+# Copy built API
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/package.json ./apps/api/
+COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
+
+# Copy built shared packages
+COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/db/package.json ./packages/db/
+COPY --from=build /app/packages/db/node_modules ./packages/db/node_modules
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/package.json ./packages/shared/
+COPY --from=build /app/packages/ai/dist ./packages/ai/dist
+COPY --from=build /app/packages/ai/package.json ./packages/ai/
+COPY --from=build /app/packages/ai/node_modules ./packages/ai/node_modules
+
+# Copy Prisma schema + migrations for migrate deploy
+COPY --from=build /app/packages/db/prisma ./packages/db/prisma
+
+# Copy generated Prisma client (custom output path)
+COPY --from=build /app/packages/db/generated ./packages/db/generated
+
+ENV NODE_ENV=production
+
+WORKDIR /app/apps/api
+
+# Run migrations then start
+CMD ["sh", "-c", "cd /app/packages/db && npx prisma migrate deploy && cd /app/apps/api && node dist/main"]

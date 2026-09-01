@@ -1,14 +1,18 @@
 import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { AnalysisService } from './analysis.service';
 import { JwtAuthGuard } from '../../common/guards/auth.guard';
+import { TeamMemberGuard } from '../../common/guards/team-member.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequireRole } from '../../common/decorators/require-role.decorator';
 import type { CalculateInput, BreakevenInput } from '@sourcetool/shared';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMemberGuard)
+@RequireRole('OWNER', 'ADMIN', 'VA', 'VIEWER')
 @Controller('analysis')
 export class AnalysisController {
   constructor(private analysisService: AnalysisService) {}
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post('calculate')
   async calculate(
     @Body() input: CalculateInput,
@@ -18,11 +22,13 @@ export class AnalysisController {
     return { success: true, data: await this.analysisService.calculate(input, userId, teamId) };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post('breakeven')
   async breakeven(@Body() input: BreakevenInput) {
     return { success: true, data: this.analysisService.calculateBreakeven(input) };
   }
 
+  @RequireRole('OWNER', 'ADMIN', 'VA')
   @Post('scenario')
   async scenario(@Body() input: CalculateInput) {
     return { success: true, data: this.analysisService.scenario(input) };

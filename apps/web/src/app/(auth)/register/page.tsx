@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { GoogleSignInButton } from '@/components/google-sign-in-button';
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +26,7 @@ export default function RegisterPage() {
       if (data.success) {
         localStorage.setItem('accessToken', data.data.accessToken);
         localStorage.setItem('refreshToken', data.data.refreshToken);
-        router.push('/products');
+        router.push(redirect || '/products');
       } else {
         setError(data.error?.message || 'Registration failed');
       }
@@ -81,5 +83,17 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    }>
+      <RegisterContent />
+    </Suspense>
   );
 }
