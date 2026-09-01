@@ -1,6 +1,7 @@
 import type { SellThroughPrediction } from '@sourcetool/shared';
 import { generateWithClaude } from '../providers/anthropic.provider';
 import { generateWithOpenAI } from '../providers/openai.provider';
+import { generateWithVercelGateway } from '../providers/vercel-gateway.provider';
 import { SELL_THROUGH_SYSTEM_PROMPT, buildSellThroughMessage } from '../prompts/verdict.prompt';
 import type { AIProvider } from './deal-scoring.service';
 
@@ -26,6 +27,11 @@ export async function predictSellThrough(
   try {
     if (provider === 'anthropic') {
       responseText = await generateWithClaude(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
+        temperature: 0.3,
+        maxTokens: 256,
+      });
+    } else if (provider === 'vercel') {
+      responseText = await generateWithVercelGateway(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
         temperature: 0.3,
         maxTokens: 256,
       });

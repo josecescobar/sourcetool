@@ -1,6 +1,8 @@
 // Providers
 export { getAnthropicClient, generateWithClaude } from './providers/anthropic.provider';
 export { getOpenAIClient, generateWithOpenAI } from './providers/openai.provider';
+// Vercel AI Gateway — OFF by default; pass provider: 'vercel' and set AI_GATEWAY_API_KEY to use it.
+export { getVercelGatewayClient, generateWithVercelGateway } from './providers/vercel-gateway.provider';
 
 // Services
 export { scoreDeal, type AIProvider } from './services/deal-scoring.service';

@@ -1,9 +1,12 @@
 import type { DealScoreInput, DealScoreOutput } from '@sourcetool/shared';
 import { generateWithClaude } from '../providers/anthropic.provider';
 import { generateWithOpenAI } from '../providers/openai.provider';
+import { generateWithVercelGateway } from '../providers/vercel-gateway.provider';
 import { DEAL_SCORE_SYSTEM_PROMPT, buildDealScoreUserMessage } from '../prompts/deal-score.prompt';
 
-export type AIProvider = 'anthropic' | 'openai';
+// 'vercel' routes through the Vercel AI Gateway (OFF by default — pass explicitly
+// and set AI_GATEWAY_API_KEY to use it; existing callers are unaffected).
+export type AIProvider = 'anthropic' | 'openai' | 'vercel';
 
 export async function scoreDeal(
   input: DealScoreInput,
@@ -16,6 +19,11 @@ export async function scoreDeal(
   try {
     if (provider === 'anthropic') {
       responseText = await generateWithClaude(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
+        temperature: 0.2,
+        maxTokens: 512,
+      });
+    } else if (provider === 'vercel') {
+      responseText = await generateWithVercelGateway(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
         temperature: 0.2,
         maxTokens: 512,
       });
