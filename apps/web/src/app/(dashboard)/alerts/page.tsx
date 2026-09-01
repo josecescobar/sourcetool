@@ -14,6 +14,9 @@ import {
   Bell,
   Eye,
   CheckCheck,
+  ShieldAlert,
+  AlertTriangle,
+  Info,
 } from 'lucide-react';
 
 const MARKETPLACES = [
@@ -32,6 +35,31 @@ const WATCH_TYPES = [
   { value: 'BSR_BELOW', label: 'BSR improves below' },
   { value: 'BSR_ABOVE', label: 'BSR worsens above' },
 ];
+
+const RISK_TYPE_LABELS: Record<string, string> = {
+  IP_COMPLAINT: 'IP Complaint',
+  HAZMAT: 'Hazmat',
+  RESTRICTED: 'Restricted',
+  MELTABLE: 'Meltable',
+  OVERSIZED: 'Oversized',
+  PRIVATE_LABEL: 'Private Label',
+};
+
+interface RiskAlert {
+  id: string;
+  alertType: string;
+  severity: number;
+  title: string;
+  description: string | null;
+  source: string | null;
+  createdAt: string;
+  product: {
+    id: string;
+    title: string;
+    asin: string | null;
+    imageUrl: string | null;
+  };
+}
 
 function marketplaceLabel(mp: string) {
   return MARKETPLACES.find((m) => m.value === mp)?.label ?? mp;
@@ -56,6 +84,12 @@ function timeAgo(dateStr: string) {
   return `${days}d ago`;
 }
 
+function riskSeverityStyle(severity: number) {
+  if (severity >= 5) return { icon: ShieldAlert, bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100 text-red-700' };
+  if (severity >= 3) return { icon: AlertTriangle, bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-700' };
+  return { icon: Info, bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' };
+}
+
 export default function AlertsPage() {
   const {
     watches,
@@ -72,13 +106,32 @@ export default function AlertsPage() {
     markAllRead,
   } = useProductWatches();
 
-  const [tab, setTab] = useState<'alerts' | 'watches'>('alerts');
+  const [tab, setTab] = useState<'alerts' | 'watches' | 'risks'>('alerts');
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const [riskAlerts, setRiskAlerts] = useState<RiskAlert[] | null>(null);
+  const [riskLoading, setRiskLoading] = useState(true);
+  const [riskError, setRiskError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWatches();
     fetchAlerts();
+
+    (async () => {
+      try {
+        const res = await apiClient.get('/alerts?limit=50');
+        if (res.success) {
+          setRiskAlerts(res.data.data);
+        } else {
+          setRiskError(res.error?.message || 'Failed to load risk flags');
+        }
+      } catch {
+        setRiskError('Failed to load risk flags');
+      } finally {
+        setRiskLoading(false);
+      }
+    })();
   }, [fetchWatches, fetchAlerts]);
 
   return (
@@ -149,9 +202,35 @@ export default function AlertsPage() {
             )}
           </span>
         </button>
+        <button
+          onClick={() => setTab('risks')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === 'risks'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4" />
+            Risk Flags
+            {riskAlerts && riskAlerts.length > 0 && (
+              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                {riskAlerts.length}
+              </span>
+            )}
+          </span>
+        </button>
       </div>
 
-      {loading ? (
+      {tab === 'risks' ? (
+        riskError ? (
+          <div className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{riskError}</div>
+        ) : riskLoading ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>
+        ) : (
+          <RiskFlagsList alerts={riskAlerts ?? []} />
+        )
+      ) : loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           Loading...
         </div>
@@ -199,6 +278,54 @@ export default function AlertsPage() {
           />
         </>
       )}
+    </div>
+  );
+}
+
+function RiskFlagsList({ alerts }: { alerts: RiskAlert[] }) {
+  if (alerts.length === 0) {
+    return (
+      <div className="rounded-xl border bg-white p-6 shadow-sm">
+        <p className="text-sm text-muted-foreground text-center py-12">
+          No risk flags yet — IP complaint, hazmat, restricted, meltable, and private-label
+          checks appear here as you analyze products.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {alerts.map((alert) => {
+        const style = riskSeverityStyle(alert.severity);
+        const Icon = style.icon;
+        return (
+          <div
+            key={alert.id}
+            className={`rounded-xl border ${style.border} ${style.bg} p-4 shadow-sm flex items-start gap-3`}
+          >
+            <Icon className={`h-5 w-5 flex-shrink-0 mt-0.5 ${style.text}`} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${style.badge}`}>
+                  {RISK_TYPE_LABELS[alert.alertType] ?? alert.alertType}
+                </span>
+                <span className="text-sm font-medium">{alert.title}</span>
+              </div>
+              {alert.description && (
+                <p className="text-sm text-muted-foreground mb-1">{alert.description}</p>
+              )}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {alert.product.imageUrl && (
+                  <img src={alert.product.imageUrl} alt="" className="h-5 w-5 rounded object-contain border" />
+                )}
+                <span className="truncate">{alert.product.title}</span>
+                {alert.product.asin && <span className="font-mono">{alert.product.asin}</span>}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

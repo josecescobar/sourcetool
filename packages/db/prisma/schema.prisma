@@ -341,6 +341,7 @@ model BulkScan {
   fulfillmentType FulfillmentType
   defaultBuyPrice Float?
   results         Json?
+  aiSummary       String?        @db.Text
   startedAt       DateTime?
   completedAt     DateTime?
   createdAt       DateTime       @default(now())

@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { prisma } from '@sourcetool/db';
+import { prisma, AlertType } from '@sourcetool/db';
 import { detectIdentifier } from '@sourcetool/shared';
 import type { Marketplace } from '@sourcetool/shared';
 import { ProductDataChainService } from '../integrations/product-data-chain.service';
 import { STALENESS_THRESHOLD_MS } from '../integrations/rainforest/rainforest.constants';
 import type { ExternalProductData } from '../integrations/interfaces/product-data-provider.interface';
 import { ProductWatchesService } from '../product-watches/product-watches.service';
+import { AiService } from '../ai/ai.service';
+import { isOversizeDimensions } from '../analysis/fee-tables/amazon-storage-fees';
 
 @Injectable()
 export class ProductsService {
@@ -14,6 +16,7 @@ export class ProductsService {
   constructor(
     private productDataChain: ProductDataChainService,
     private productWatches: ProductWatchesService,
+    private aiService: AiService,
   ) {}
 
   async lookup(identifier: string, marketplace?: Marketplace): Promise<any> {
@@ -227,15 +230,97 @@ export class ProductsService {
       ).catch((err) => {
         this.logger.error(`History/watch check failed: ${err}`);
       });
+    }
 
-      // Re-fetch with updated listings
-      return prisma.product.findUnique({
-        where: { id: product.id },
-        include: { listings: true, alerts: true },
+    await this.generateAlertsIfNeeded(product);
+
+    // Re-fetch so callers see any freshly-created listing/alerts
+    return prisma.product.findUnique({
+      where: { id: product.id },
+      include: { listings: true, alerts: true },
+    });
+  }
+
+  // Generate risk-flag alerts the first time we see a product; skipped once
+  // it already has alerts so we don't re-call AI on every refresh.
+  private async generateAlertsIfNeeded(product: {
+    id: string;
+    title: string;
+    brand: string | null;
+    category: string | null;
+    dimensions: unknown;
+    alerts?: unknown[];
+  }): Promise<void> {
+    if (product.alerts && product.alerts.length > 0) {
+      return;
+    }
+
+    const existingCount = await prisma.alert.count({ where: { productId: product.id } });
+    if (existingCount > 0) {
+      return;
+    }
+
+    const alertsToCreate: Array<{
+      productId: string;
+      alertType: AlertType;
+      severity: number;
+      title: string;
+      description?: string;
+      source: string;
+    }> = [];
+
+    // Rule-based: oversize is a deterministic fact from dimensions, not an AI guess.
+    const dims = product.dimensions as
+      | { lengthInches: number; widthInches: number; heightInches: number; weightPounds: number }
+      | null
+      | undefined;
+    if (dims && isOversizeDimensions(dims)) {
+      alertsToCreate.push({
+        productId: product.id,
+        alertType: AlertType.OVERSIZED,
+        severity: 2,
+        title: 'Oversize item',
+        description: 'Dimensions/weight exceed Amazon standard-size thresholds — expect higher fulfillment and storage fees.',
+        source: 'RULE_BASED',
       });
     }
 
-    return product;
+    // AI-inferred: risks that need judgment from the product's text, not raw data.
+    try {
+      const flags = await this.aiService.getRiskFlags({
+        title: product.title,
+        brand: product.brand ?? undefined,
+        category: product.category ?? undefined,
+      });
+
+      const flagToAlert: Array<[keyof typeof flags, AlertType, number, string]> = [
+        ['ipComplaints', AlertType.IP_COMPLAINT, 4, 'Potential IP complaint risk'],
+        ['hazmat', AlertType.HAZMAT, 5, 'Likely hazmat'],
+        ['restricted', AlertType.RESTRICTED, 4, 'Likely restricted category'],
+        ['meltable', AlertType.MELTABLE, 2, 'Heat-sensitive product'],
+        ['privateLabel', AlertType.PRIVATE_LABEL, 1, 'Likely private-label brand'],
+      ];
+
+      for (const [key, alertType, severity, title] of flagToAlert) {
+        const result = flags[key];
+        if (result?.flagged) {
+          alertsToCreate.push({
+            productId: product.id,
+            alertType,
+            severity,
+            title,
+            description: result.reason,
+            source: 'AI_INFERENCE',
+          });
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Risk flag inference failed for product ${product.id}: ${err.message}`);
+    }
+
+    if (alertsToCreate.length > 0) {
+      await prisma.alert.createMany({ data: alertsToCreate });
+    }
   }
 
   private refreshProductAsync(

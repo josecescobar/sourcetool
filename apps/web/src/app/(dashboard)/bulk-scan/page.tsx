@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, List, RotateCcw, Columns3 } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, Sparkles, List, RotateCcw, Columns3 } from 'lucide-react';
 import { parseCSV, type ParseResult } from '@/lib/csv-parser';
 import { useBulkScan } from '@/hooks/useBulkScan';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
@@ -304,6 +304,21 @@ export default function BulkScanPage() {
               </button>
             </div>
           </div>
+
+          {/* AI summary */}
+          {scan.aiSummary && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-medium text-primary uppercase tracking-wide mb-1">
+                    AI Summary
+                  </div>
+                  <p className="text-sm text-foreground">{scan.aiSummary}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {buyListMessage && (
             <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">

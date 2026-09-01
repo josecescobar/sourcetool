@@ -11,9 +11,19 @@ const WATCH_TYPES = [
   { value: 'BSR_ABOVE', label: 'BSR Above' },
 ] as const;
 
+const RISK_TYPE_LABELS: Record<string, string> = {
+  IP_COMPLAINT: 'IP Complaint',
+  HAZMAT: 'Hazmat',
+  RESTRICTED: 'Restricted',
+  MELTABLE: 'Meltable',
+  OVERSIZED: 'Oversized',
+  PRIVATE_LABEL: 'Private Label',
+};
+
 export function AlertsTab({ product }: Props) {
   const [watches, setWatches] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [riskFlags, setRiskFlags] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [watchType, setWatchType] = useState('PRICE_BELOW');
@@ -22,21 +32,25 @@ export function AlertsTab({ product }: Props) {
 
   useEffect(() => {
     loadData();
-  }, [product.id]);
+  }, [product.id, product.asin]);
 
   const loadData = async () => {
     if (!product.id) return;
     setLoading(true);
     try {
-      const [watchRes, alertRes] = await Promise.all([
+      const [watchRes, alertRes, riskRes] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_WATCHES' }),
         chrome.runtime.sendMessage({ type: 'GET_ALERTS' }),
+        product.asin
+          ? chrome.runtime.sendMessage({ type: 'CHECK_ALERTS', data: { identifier: product.asin } })
+          : Promise.resolve(null),
       ]);
       const allWatches = watchRes?.data || [];
       setWatches(allWatches.filter((w: any) => w.productId === product.id));
       // Show alerts for this product
       const allAlerts = alertRes?.data || [];
       setAlerts(allAlerts.filter((a: any) => a.productId === product.id));
+      setRiskFlags(riskRes?.success ? (riskRes.data ?? []) : []);
     } catch {}
     setLoading(false);
   };
@@ -75,6 +89,32 @@ export function AlertsTab({ product }: Props) {
 
   return (
     <div>
+      {/* Risk Flags */}
+      {riskFlags.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium mb-2">Risk Flags</h4>
+          <div className="space-y-1">
+            {riskFlags.map((flag) => (
+              <div
+                key={flag.id}
+                className={`rounded-md border px-2 py-1.5 text-xs ${
+                  flag.severity >= 5
+                    ? 'border-red-200 bg-red-50'
+                    : flag.severity >= 3
+                      ? 'border-amber-200 bg-amber-50'
+                      : 'border-blue-200 bg-blue-50'
+                }`}
+              >
+                <span className="font-medium">{RISK_TYPE_LABELS[flag.alertType] ?? flag.alertType}</span>
+                {flag.description && (
+                  <p className="text-muted-foreground mt-0.5">{flag.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Active Watches */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">

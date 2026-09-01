@@ -16,6 +16,7 @@ interface ScanStatus {
   successRows: number;
   failedRows: number;
   marketplace: string;
+  aiSummary?: string | null;
 }
 
 export function useBulkScan() {
