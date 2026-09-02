@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
   "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && pnpm --filter @sourcetool/db run db:generate && pnpm --filter @sourcetool/shared run build && pnpm --filter @sourcetool/ai run build && pnpm --filter @sourcetool/ui run build && pnpm --filter @sourcetool/web run build",
+  "buildCommand": "cd ../.. && bash scripts/vercel-build.sh",
   "crons": [
     {
       "path": "/api/cron/check-watches",

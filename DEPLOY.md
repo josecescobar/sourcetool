@@ -17,9 +17,9 @@ port 6543) can host this Prisma schema. Neon is the other good fit. Do not
 provision a new database until you've checked both.
 
 If you use the Neon Vercel integration, it injects `DATABASE_URL` (pooled) and
-`DATABASE_URL_UNPOOLED`. Copy the unpooled value into `DIRECT_DATABASE_URL`
-(Prisma's schema key) — or add `DIRECT_DATABASE_URL` as an extra env var with
-the same value.
+`DATABASE_URL_UNPOOLED`. You do **not** have to rename them — `packages/db`
+maps `DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING` onto
+`DIRECT_DATABASE_URL` before `prisma generate` and `prisma migrate deploy`.
 
 1. Create a project only if you don't already have Neon or Supabase Postgres.
 2. Copy the **pooled** connection string into `DATABASE_URL`.
@@ -73,9 +73,10 @@ AI_GATEWAY_API_KEY=
 `CRON_SECRET` is injected by Vercel for Cron Jobs; you can also set it yourself.
 Do **not** set `NEXT_PUBLIC_API_URL` to a separate API host — routes are same-origin.
 
-4. Run `prisma migrate deploy` once against `DIRECT_DATABASE_URL` (local CLI or a
-   Vercel build command extra step). After that, deploys only need `prisma generate`
-   (already part of `@sourcetool/db` `build`).
+4. Apply schema once with `pnpm --filter @sourcetool/db run db:migrate:deploy`,
+   or set `PRISMA_MIGRATE_ON_BUILD=1` on Vercel so `scripts/vercel-build.sh`
+   runs migrate deploy on every production build. After the first migrate,
+   later deploys only need `prisma generate` (already in the build).
 
 ## 3. Cron
 
