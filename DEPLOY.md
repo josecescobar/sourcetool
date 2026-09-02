@@ -67,10 +67,12 @@ not open a standing TCP pool.
 1. Import the GitHub repo in Vercel.
 2. Set **Root Directory** to `apps/web` and leave **Include source files outside
    the Root Directory** enabled (the pnpm workspace lives at the repo root).
-   Framework: Next.js. The repo-root `vercel.json` sets `rootDirectory` so a CLI
-   deploy of the whole repo is treated as Next.js (not a static `public/` site).
-   `apps/web/vercel.json` runs `pnpm install` / Prisma generate / `next build`
-   from the workspace root and registers the 6-hour cron.
+   Framework: Next.js. `apps/web/vercel.json` runs `pnpm install` / Prisma generate
+   / `next build` from the workspace root and registers the 6-hour cron.
+   CLI deploys must be run from `apps/web` so Vercel detects Next.js (a repo-root
+   deploy looks for a static `public/` folder). Do not set
+   `outputFileTracingRoot` to the monorepo root — the Next.js builder then looks
+   for `.next` at `apps/web/apps/web`.
 3. Environment variables (Production + Preview):
 
 ```
@@ -114,10 +116,10 @@ Do **not** set `NEXT_PUBLIC_API_URL` to a separate API host — routes are same-
 
 Vercel sends `Authorization: Bearer $CRON_SECRET`. The route rejects any other caller.
 
-Large watch lists and bulk scans run in **40-lookup batches**. Each batch hops to a
+Large watch lists and bulk scans run in **20-lookup batches**. Each batch hops to a
 new invocation (`/api/cron/check-watches?offset=` or `POST /api/cron/process-bulk-scan`)
-so work is not killed at the 300s `maxDuration`. That hop needs `CRON_SECRET` and
-`WEB_URL` (or `VERCEL_URL`) set on the project.
+so work is not killed at the 60s Hobby/`maxDuration`. That hop needs `CRON_SECRET` and
+`WEB_URL` (or `VERCEL_URL`) set on the project. On Pro you can raise `maxDuration`.
 
 Hobby plans only allow daily crons; the 6-hour schedule needs Pro.
 
@@ -172,7 +174,7 @@ The Chrome extension default API URL is `http://localhost:3000/api`.
 URLs cannot run some DDL.
 
 **CORS errors from the extension:** `WEB_URL` must match the dashboard origin;
-chrome-extension:// origins are allowed by middleware.
+chrome-extension:// origins are allowed by CORS headers on `handleRoute`.
 
 **Cron 401:** `CRON_SECRET` is missing, or the request lacked `Authorization: Bearer …`.
 

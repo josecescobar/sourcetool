@@ -1,9 +1,11 @@
-import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Monorepo: include workspace packages when Vercel traces serverless functions.
-  outputFileTracingRoot: path.join(__dirname, '../..'),
+  // Pack the Prisma query engine into every API function (Vercel looks in
+  // /var/task/generated/client). vercel-build.sh copies it here after generate.
+  outputFileTracingIncludes: {
+    '/api/**': ['./generated/client/**'],
+  },
   transpilePackages: [
     '@sourcetool/shared',
     '@sourcetool/ui',
@@ -21,6 +23,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     '@neondatabase/serverless',
     '@prisma/adapter-neon',
+    '@prisma/client',
     'ws',
     'bcryptjs',
   ],

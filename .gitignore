@@ -11,6 +11,7 @@ out/
 
 # Generated Prisma client
 packages/db/generated/
+apps/web/generated/
 
 # Environment
 .env

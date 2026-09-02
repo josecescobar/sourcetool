@@ -122,7 +122,7 @@ export class BulkScanService {
 
   /**
    * Process one bounded batch of PENDING rows, then hop to a new invocation
-   * if work remains. Safe under Vercel maxDuration=300.
+   * if work remains. Safe under Vercel Hobby maxDuration=60.
    */
   async processChunk(
     scanId: string,

@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 
-/** How many provider lookups one Vercel invocation can finish under 300s. */
-export const LOOKUP_BATCH_SIZE = 40;
+/** How many provider lookups one invocation can finish under Hobby/anonymous 60s. */
+export const LOOKUP_BATCH_SIZE = 20;
 
 export function appBaseUrl() {
   if (process.env.WEB_URL) return process.env.WEB_URL.replace(/\/$/, '');

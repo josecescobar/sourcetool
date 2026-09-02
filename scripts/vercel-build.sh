@@ -6,6 +6,12 @@ cd "$ROOT"
 
 pnpm --filter @sourcetool/db run db:generate
 
+# Next.js file tracing looks for the query engine at /var/task/generated/client
+# on Vercel. Copy it next to the web app so outputFileTracingIncludes can pack it.
+mkdir -p apps/web/generated
+rm -rf apps/web/generated/client
+cp -a packages/db/generated/client apps/web/generated/client
+
 if [ "${PRISMA_MIGRATE_ON_BUILD:-}" = "1" ]; then
   echo "PRISMA_MIGRATE_ON_BUILD=1 — running prisma migrate deploy"
   pnpm --filter @sourcetool/db run db:migrate:deploy

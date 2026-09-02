@@ -75,12 +75,51 @@ export async function readJson<T = Record<string, unknown>>(req: Request): Promi
   }
 }
 
+function isAllowedOrigin(origin: string | null) {
+  if (!origin) return true;
+  const webUrl = process.env.WEB_URL || 'http://localhost:3000';
+  return (
+    origin === webUrl ||
+    origin.startsWith('chrome-extension://') ||
+    origin.startsWith('moz-extension://') ||
+    origin.startsWith('safari-web-extension://')
+  );
+}
+
+function applyCors(req: Request, response: Response) {
+  const origin = req.headers.get('origin');
+  if (origin && isAllowedOrigin(origin)) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Vary', 'Origin');
+  }
+  return response;
+}
+
+function corsPreflight(req: Request) {
+  const origin = req.headers.get('origin');
+  const allowed = isAllowedOrigin(origin);
+  const headers = new Headers();
+  if (allowed && origin) {
+    headers.set('Access-Control-Allow-Origin', origin);
+    headers.set('Access-Control-Allow-Credentials', 'true');
+    headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Authorization,Content-Type,Stripe-Signature');
+    headers.set('Access-Control-Max-Age', '86400');
+    headers.set('Vary', 'Origin');
+  }
+  return new NextResponse(null, { status: allowed ? 204 : 403, headers });
+}
+
 export function handleRoute(fn: (req: Request, ctx?: any) => Promise<NextResponse | Response>) {
   return async (req: Request, ctx?: any) => {
+    if (req.method === 'OPTIONS') {
+      return corsPreflight(req);
+    }
     try {
-      return await fn(req, ctx);
+      return applyCors(req, await fn(req, ctx));
     } catch (err) {
-      return jsonError(err);
+      return applyCors(req, jsonError(err));
     }
   };
 }
