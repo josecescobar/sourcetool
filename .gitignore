@@ -16,6 +16,8 @@ packages/db/generated/
 .env
 .env.local
 .env.*.local
+.env.neon
+.neon
 
 # IDE
 .vscode/

@@ -18,7 +18,7 @@ SourceTool helps Amazon FBA sellers find profitable products to resell. Look up 
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | Next.js 15 Route Handlers, Prisma ORM, Neon/Supabase Postgres |
+| **Backend** | Next.js 15 Route Handlers, Prisma ORM, Neon Postgres |
 | **Frontend** | Next.js 15 (App Router), React 19, Tailwind CSS, shadcn/ui, Recharts |
 | **Extension** | Chrome Manifest V3, React 19, Webpack 5, Tailwind CSS |
 | **AI** | Anthropic Claude, OpenAI, Vercel AI Gateway |
@@ -26,7 +26,7 @@ SourceTool helps Amazon FBA sellers find profitable products to resell. Look up 
 | **Auth** | JWT (Bearer) + bcrypt + Google OAuth, Resend (transactional email) |
 | **Payments** | Stripe |
 | **Monorepo** | Turborepo, pnpm workspaces |
-| **Infra** | Vercel (app + cron), Neon or Supabase Postgres |
+| **Infra** | Vercel (app + cron), Neon Postgres |
 
 ---
 
@@ -155,7 +155,7 @@ Business logic lives in `apps/web/src/lib/server`; HTTP is Next.js App Router `r
 
 - Node.js 20+
 - pnpm 9+
-- A Postgres database (Neon, Supabase, or local)
+- A Neon Postgres database (or local Postgres for development)
 
 ### Setup
 
@@ -181,7 +181,7 @@ This starts:
 - **Web + API**: http://localhost:3000 (API under `/api`)
 - **Extension**: `pnpm --filter extension dev` then load `apps/extension/dist/chrome/` as unpacked extension in `chrome://extensions`
 
-See [DEPLOY.md](./DEPLOY.md) for Vercel + Neon/Supabase production setup.
+See [DEPLOY.md](./DEPLOY.md) for Vercel + Neon production setup.
 
 ---
 

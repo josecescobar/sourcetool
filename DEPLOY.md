@@ -6,37 +6,50 @@ separate NestJS/Railway/Docker service.
 | Piece | Where it runs |
 |-------|----------------|
 | Web + API | Vercel (`apps/web`, routes under `/api/*`) |
-| Postgres | Neon (preferred with Prisma) or Supabase pooler |
+| Postgres | Neon (Prisma + `@prisma/adapter-neon`) |
 | Watch checker | Vercel Cron → `GET /api/cron/check-watches` every 6 hours |
 
-## 1. Database
+## 1. Database (Neon)
 
-Use a managed serverless Postgres. **Reuse an existing project if you have one**
-— simplywise-cost-estimator already uses Supabase; that org's Postgres (pooled
-port 6543) can host this Prisma schema. Neon is the other good fit. Do not
-provision a new database until you've checked both.
+SourceTool uses **Neon** Postgres. There is no existing Neon project in this
+GitHub account (simplywise is on Supabase; real-elite is on Turso). Create one.
 
-If you use the Neon Vercel integration, it injects `DATABASE_URL` (pooled) and
-`DATABASE_URL_UNPOOLED`. You do **not** have to rename them — `packages/db`
-maps `DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING` onto
-`DIRECT_DATABASE_URL` before `prisma generate` and `prisma migrate deploy`.
+### Option A — Neon Console (2 minutes)
 
-1. Create a project only if you don't already have Neon or Supabase Postgres.
-2. Copy the **pooled** connection string into `DATABASE_URL`.
-   - Neon: the URL whose host contains `-pooler`.
-   - Supabase: the transaction pooler URL (port 6543).
-   - Append `?pgbouncer=true&connection_limit=1` if those flags are not already present.
-3. Copy the **direct / unpooled** connection string into `DIRECT_DATABASE_URL`
-   (used only by `prisma migrate deploy`).
-4. Apply schema:
+1. Open [console.neon.tech](https://console.neon.tech) and create a project:
+   - Name: `sourcetool`
+   - Postgres 16
+   - Region close to your Vercel project (e.g. `aws-us-east-1`)
+   - Database: `sourcetool`
+2. In **Connect**, copy the **pooled** string (host contains `-pooler`) into
+   Vercel `DATABASE_URL`. Append `?sslmode=require` if it is not there.
+   The Prisma flag `--prisma` / `pgbouncer=true` is optional; Neon’s pooler
+   already multiplexes.
+3. Copy the **direct** string into `DIRECT_DATABASE_URL`.
+4. Apply schema: `pnpm --filter @sourcetool/db run db:migrate:deploy`
+
+### Option B — API key (this repo’s script)
+
+Create a personal key at
+[console.neon.tech/app/settings/api-keys](https://console.neon.tech/app/settings/api-keys)
+then:
 
 ```bash
-pnpm --filter @sourcetool/db run db:generate
-DATABASE_URL="$DIRECT_DATABASE_URL" pnpm --filter @sourcetool/db exec prisma migrate deploy
+NEON_API_KEY=napi_... pnpm db:neon:provision
 ```
 
-When `DATABASE_URL` points at Neon, the Prisma client uses `@prisma/adapter-neon`
-automatically. Other hosts use the standard Prisma driver against the pooled URL.
+That reuses a project named `sourcetool` if it exists, otherwise creates one,
+writes `.env.neon` (gitignored), and runs `prisma migrate deploy`.
+
+### Neon ↔ Vercel integration
+
+If you add Neon from the Vercel Storage tab, it injects `DATABASE_URL` and
+`DATABASE_URL_UNPOOLED`. You do **not** have to rename them — `packages/db`
+maps those onto Prisma’s `DIRECT_DATABASE_URL` before generate/migrate.
+
+When `DATABASE_URL` is a `*.neon.tech` host, the Prisma client uses
+`@prisma/adapter-neon` (WebSocket via `ws`) so each serverless invocation does
+not open a standing TCP pool.
 
 ## 2. Vercel project
 
@@ -117,8 +130,9 @@ Auth is still Bearer JWT in `Authorization` (service workers cannot use cookie s
 
 ```bash
 cp .env.example .env
-# Set DATABASE_URL + DIRECT_DATABASE_URL to your Neon/Supabase branch
-# (or a local Postgres URL — both vars can be the same locally)
+# Set DATABASE_URL + DIRECT_DATABASE_URL to your Neon branch
+# (or a local Postgres URL — both vars can be the same locally).
+# After `pnpm db:neon:provision`, you can `set -a && source .env.neon && set +a`.
 pnpm install
 pnpm db:generate
 pnpm db:push
