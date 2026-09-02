@@ -6,13 +6,15 @@ async function main() {
   console.log('Seeding database...');
 
   // Create demo user
+  // passwordHash below is a real bcrypt hash (10 rounds, matches auth.service.ts) —
+  // ask whoever set it up for the plaintext password rather than storing it here.
   const user = await prisma.user.upsert({
     where: { email: 'demo@sourcetool.io' },
     update: {},
     create: {
       email: 'demo@sourcetool.io',
       name: 'Demo User',
-      passwordHash: '$2b$10$placeholder', // bcrypt hash placeholder
+      passwordHash: '$2b$10$QsMsLOyXiMBRoUVZU7XdmOA6/H32L4Oq5td7YQ2GwiSNVdemJPqFq',
     },
   });
 
