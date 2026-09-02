@@ -67,8 +67,10 @@ not open a standing TCP pool.
 1. Import the GitHub repo in Vercel.
 2. Set **Root Directory** to `apps/web` and leave **Include source files outside
    the Root Directory** enabled (the pnpm workspace lives at the repo root).
-   Framework: Next.js. `apps/web/vercel.json` runs `pnpm install` / Prisma generate
-   / `next build` from the workspace root and registers the 6-hour cron.
+   Framework: Next.js. The repo-root `vercel.json` sets `rootDirectory` so a CLI
+   deploy of the whole repo is treated as Next.js (not a static `public/` site).
+   `apps/web/vercel.json` runs `pnpm install` / Prisma generate / `next build`
+   from the workspace root and registers the 6-hour cron.
 3. Environment variables (Production + Preview):
 
 ```

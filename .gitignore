@@ -17,6 +17,7 @@ packages/db/generated/
 .env.local
 .env.*.local
 .env.neon
+.env.vercel-preview
 .neon
 
 # IDE

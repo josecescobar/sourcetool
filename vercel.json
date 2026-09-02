@@ -1,4 +1,8 @@
 {
+  "rootDirectory": "apps/web",
+  "framework": "nextjs",
+  "installCommand": "pnpm install",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "crons": [
     {
       "path": "/api/cron/check-watches",
