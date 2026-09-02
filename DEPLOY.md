@@ -14,6 +14,17 @@ separate NestJS/Railway/Docker service.
 SourceTool uses **Neon** Postgres. There is no existing Neon project in this
 GitHub account (simplywise is on Supabase; real-elite is on Turso). Create one.
 
+Production project (Jose org, created 2026-09-02):
+
+- Name: `sourcetool`
+- ID: `dry-leaf-39634333`
+- Region: `aws-us-east-1`
+- Postgres 16, database `sourcetool`
+- Console: https://console.neon.tech/app/projects/dry-leaf-39634333
+
+Connection strings are in `.env.neon` on the machine that provisioned it (gitignored).
+Paste `DATABASE_URL` (pooled / `-pooler`) and `DIRECT_DATABASE_URL` into Vercel.
+
 ### Option A — Neon Console (2 minutes)
 
 1. Open [console.neon.tech](https://console.neon.tech) and create a project:

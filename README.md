@@ -195,6 +195,7 @@ pnpm lint         # ESLint across all packages
 pnpm db:push      # Push Prisma schema to database
 pnpm db:generate  # Regenerate Prisma client
 pnpm db:seed      # Seed sample data
+pnpm db:neon:provision  # Create/reuse Neon project (needs NEON_API_KEY)
 pnpm clean        # Remove all build artifacts and node_modules
 ```
 
@@ -206,8 +207,8 @@ See `.env.example` for the full list. Key ones:
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `DATABASE_URL` | Yes | Pooled Postgres URL (`pgbouncer=true&connection_limit=1`) |
-| `DIRECT_DATABASE_URL` | Yes | Unpooled URL for Prisma Migrate |
+| `DATABASE_URL` | Yes | Neon pooled URL (host contains `-pooler`) |
+| `DIRECT_DATABASE_URL` | Yes | Neon direct URL. Alias: `DATABASE_URL_UNPOOLED` |
 | `JWT_SECRET` | Yes | Secret for signing access tokens |
 | `JWT_REFRESH_SECRET` | Yes | Secret for signing refresh tokens |
 | `CRON_SECRET` | Prod cron | Vercel sets this for `/api/cron/check-watches` |
