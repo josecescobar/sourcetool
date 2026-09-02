@@ -112,6 +112,11 @@ Do **not** set `NEXT_PUBLIC_API_URL` to a separate API host — routes are same-
 
 Vercel sends `Authorization: Bearer $CRON_SECRET`. The route rejects any other caller.
 
+Large watch lists and bulk scans run in **40-lookup batches**. Each batch hops to a
+new invocation (`/api/cron/check-watches?offset=` or `POST /api/cron/process-bulk-scan`)
+so work is not killed at the 300s `maxDuration`. That hop needs `CRON_SECRET` and
+`WEB_URL` (or `VERCEL_URL`) set on the project.
+
 Hobby plans only allow daily crons; the 6-hour schedule needs Pro.
 
 ## 4. Stripe webhook
