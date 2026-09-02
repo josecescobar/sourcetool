@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm --filter @sourcetool/db run db:generate && pnpm --filter @sourcetool/shared run build && pnpm --filter @sourcetool/ai run build && pnpm --filter @sourcetool/ui run build && pnpm --filter @sourcetool/web run build",
+  "crons": [
+    {
+      "path": "/api/cron/check-watches",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

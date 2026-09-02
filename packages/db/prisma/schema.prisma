@@ -4,8 +4,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // DATABASE_URL should be the pooled connection (Neon pooler / Supabase pgbouncer /
+  // `?pgbouncer=true&connection_limit=1`) so serverless invocations do not exhaust
+  // the instance. DIRECT_DATABASE_URL is the unpooled URL used by Prisma Migrate.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────

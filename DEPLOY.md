@@ -1,112 +1,139 @@
-# SourceTool — Railway Deployment Guide
+# SourceTool — Vercel Deployment Guide
 
-## Services Overview
+The dashboard and API both live in `apps/web` (Next.js App Router). There is no
+separate NestJS/Railway/Docker service.
 
-| Service    | Type       | Source                  |
-|------------|------------|-------------------------|
-| PostgreSQL | Managed DB | Railway add-on          |
-| Redis      | Managed    | Railway add-on          |
-| API        | Docker     | `apps/api/Dockerfile`   |
-| Web        | Docker     | `apps/web/Dockerfile`   |
+| Piece | Where it runs |
+|-------|----------------|
+| Web + API | Vercel (`apps/web`, routes under `/api/*`) |
+| Postgres | Neon (preferred with Prisma) or Supabase pooler |
+| Watch checker | Vercel Cron → `GET /api/cron/check-watches` every 6 hours |
 
-## Step 1: Create Railway Project
+## 1. Database
 
-1. Create a new project in [Railway](https://railway.app)
-2. Add a **PostgreSQL** service (Railway managed)
-3. Add a **Redis** service (Railway managed)
-4. Add a **New Service** → connect your GitHub repo → name it **API**
-   - Set root directory: `/` (repo root, Dockerfile path relative to root)
-   - Set Dockerfile path: `apps/api/Dockerfile`
-5. Add another **New Service** → same GitHub repo → name it **Web**
-   - Set root directory: `/`
-   - Set Dockerfile path: `apps/web/Dockerfile`
+Use a managed serverless Postgres. Neon is the best fit for this Prisma schema;
+Supabase Postgres also works via its connection pooler.
 
-## Step 2: Environment Variables
+1. Create a project (Neon dashboard, or reuse an existing Supabase Postgres).
+2. Copy the **pooled** connection string into `DATABASE_URL`.
+   - Neon: the URL whose host contains `-pooler`.
+   - Supabase: the transaction pooler URL (port 6543).
+   - Append `?pgbouncer=true&connection_limit=1` if those flags are not already present.
+3. Copy the **direct / unpooled** connection string into `DIRECT_DATABASE_URL`
+   (used only by `prisma migrate deploy`).
+4. Apply schema:
 
-### API Service
+```bash
+pnpm --filter @sourcetool/db run db:generate
+DATABASE_URL="$DIRECT_DATABASE_URL" pnpm --filter @sourcetool/db exec prisma migrate deploy
+```
+
+When `DATABASE_URL` points at Neon, the Prisma client uses `@prisma/adapter-neon`
+automatically. Other hosts use the standard Prisma driver against the pooled URL.
+
+## 2. Vercel project
+
+1. Import the GitHub repo in Vercel.
+2. Set **Root Directory** to `apps/web` (include files outside the root directory).
+   Framework: Next.js. Install: `pnpm install` from the repo root is handled by
+   the root `vercel.json` if you deploy from `/` instead.
+3. Environment variables (Production + Preview):
 
 ```
-DATABASE_URL=            # Railway provides via PostgreSQL service reference
-REDIS_URL=               # Railway provides via Redis service reference
-JWT_SECRET=              # Generate: openssl rand -base64 32
-JWT_REFRESH_SECRET=      # Generate: openssl rand -base64 32
+DATABASE_URL=
+DIRECT_DATABASE_URL=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
 JWT_ACCESS_EXPIRY=15m
 JWT_REFRESH_EXPIRY=7d
-RAINFOREST_API_KEY=      # From existing .env
-KEEPA_API_KEY=           # From existing .env
-STRIPE_SECRET_KEY=       # Stripe live key
-STRIPE_WEBHOOK_SECRET=   # From Stripe dashboard (set up in Step 5)
-RESEND_API_KEY=          # For email verification
-EMAIL_FROM=SourceTool <noreply@sourcetool.io>
+CRON_SECRET=
 WEB_URL=https://app.sourcetool.io
-NODE_ENV=production
+NEXT_PUBLIC_API_URL=/api
+RESEND_API_KEY=
+EMAIL_FROM=SourceTool <noreply@sourcetool.io>
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+RAINFOREST_API_KEY=
+KEEPA_API_KEY=
+ANTHROPIC_API_KEY=
+AI_GATEWAY_API_KEY=
 ```
 
-> `PORT` is set automatically by Railway — do not set it manually.
+`CRON_SECRET` is injected by Vercel for Cron Jobs; you can also set it yourself.
+Do **not** set `NEXT_PUBLIC_API_URL` to a separate API host — routes are same-origin.
 
-### Web Service
+4. Run `prisma migrate deploy` once against `DIRECT_DATABASE_URL` (local CLI or a
+   Vercel build command extra step). After that, deploys only need `prisma generate`
+   (already part of `@sourcetool/db` `build`).
+
+## 3. Cron
+
+`apps/web/vercel.json` registers:
 
 ```
-NEXT_PUBLIC_API_URL=https://api.sourcetool.io/api
-NODE_ENV=production
+0 */6 * * *  →  GET /api/cron/check-watches
 ```
 
-> `NEXT_PUBLIC_API_URL` must be set before the build since Next.js inlines `NEXT_PUBLIC_*` vars at build time. Set it in Railway's build variables or as a Docker build arg.
+Vercel sends `Authorization: Bearer $CRON_SECRET`. The route rejects any other caller.
 
-## Step 3: Configure Health Check
+Hobby plans only allow daily crons; the 6-hour schedule needs Pro.
 
-In Railway's API service settings:
-- Health check path: `/api/health`
-- Health check timeout: 30s
+## 4. Stripe webhook
 
-## Step 4: First Deploy
+Endpoint: `https://<your-domain>/api/billing/webhook`
 
-1. Push to GitHub — Railway auto-deploys
-2. The API Dockerfile runs `prisma migrate deploy` on startup, applying all migrations
-3. Verify the API is running: `curl https://api.sourcetool.io/api/health`
-4. Verify the web app loads at `https://app.sourcetool.io`
+Subscribe to:
 
-## Step 5: Set Up Stripe Production Webhook
+- `checkout.session.completed`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_failed`
 
-1. Go to [Stripe Dashboard → Webhooks](https://dashboard.stripe.com/webhooks)
-2. Add endpoint: `https://api.sourcetool.io/api/billing/webhook`
-3. Subscribe to events:
-   - `checkout.session.completed`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - `invoice.payment_failed`
-4. Copy the webhook signing secret → set as `STRIPE_WEBHOOK_SECRET` in Railway API service
+Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 
-## Step 6: Custom Domains (Optional)
+## 5. Chrome extension
 
-1. In Railway, go to each service's **Settings → Networking → Custom Domain**
-2. Add your domains:
-   - API: `api.sourcetool.io`
-   - Web: `app.sourcetool.io`
-3. Add the CNAME records in your DNS provider as Railway instructs
-4. Update `WEB_URL` and `NEXT_PUBLIC_API_URL` env vars to match
+Point the extension API URL at the Vercel deployment:
 
-## Step 7: Post-Deploy Testing
+```
+https://app.sourcetool.io/api
+```
 
-- [ ] Sign up with email + password
-- [ ] Verify email (check email delivery via Resend)
-- [ ] Log in
-- [ ] Product lookup (ASIN search)
-- [ ] Bulk scan upload
-- [ ] Profit calculator
-- [ ] Add to buy list
-- [ ] Stripe checkout → subscription activation
-- [ ] Webhook fires on subscription events
-- [ ] Chrome extension connects to production API
+Auth is still Bearer JWT in `Authorization` (service workers cannot use cookie sessions).
+
+## 6. Local development
+
+```bash
+cp .env.example .env
+# Set DATABASE_URL + DIRECT_DATABASE_URL to your Neon/Supabase branch
+# (or a local Postgres URL — both vars can be the same locally)
+pnpm install
+pnpm db:generate
+pnpm db:push
+pnpm --filter @sourcetool/web dev
+```
+
+App: http://localhost:3000  
+API: http://localhost:3000/api  
+Health: http://localhost:3000/api/health
+
+The Chrome extension default API URL is `http://localhost:3000/api`.
 
 ## Troubleshooting
 
-**API won't start**: Check `DATABASE_URL` is correct. Railway provides it via service reference — use `${{Postgres.DATABASE_URL}}` syntax.
+**Too many database connections:** `DATABASE_URL` must be the pooled URL with
+`connection_limit=1`. On Neon, confirm the host includes `-pooler`.
 
-**Prisma migration fails**: Ensure the `packages/db/prisma/migrations` directory is committed and not in `.dockerignore`.
+**Prisma migrate fails:** migrate needs `DIRECT_DATABASE_URL` (unpooled). Pooled
+URLs cannot run some DDL.
 
-**CORS errors**: Verify `WEB_URL` matches the exact origin of your web app (including `https://`).
+**CORS errors from the extension:** `WEB_URL` must match the dashboard origin;
+chrome-extension:// origins are allowed by middleware.
 
-**Stripe webhooks fail**: Ensure `STRIPE_WEBHOOK_SECRET` matches the webhook endpoint's signing secret, and that raw body parsing is enabled (it is — `rawBody: true` in `main.ts`).
+**Cron 401:** `CRON_SECRET` is missing, or the request lacked `Authorization: Bearer …`.
 
-**Next.js API calls fail**: `NEXT_PUBLIC_API_URL` must be set at build time. If changed, trigger a rebuild in Railway.
+**Stripe webhook 400:** raw body is required; the route reads `arrayBuffer()` before
+JSON parsing. Confirm `STRIPE_WEBHOOK_SECRET` matches this endpoint.

@@ -18,15 +18,15 @@ SourceTool helps Amazon FBA sellers find profitable products to resell. Look up 
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | NestJS 11, Prisma ORM, PostgreSQL, Redis, @nestjs/schedule |
+| **Backend** | Next.js 15 Route Handlers, Prisma ORM, Neon/Supabase Postgres |
 | **Frontend** | Next.js 15 (App Router), React 19, Tailwind CSS, shadcn/ui, Recharts |
 | **Extension** | Chrome Manifest V3, React 19, Webpack 5, Tailwind CSS |
-| **AI** | Anthropic Claude, OpenAI |
+| **AI** | Anthropic Claude, OpenAI, Vercel AI Gateway |
 | **Product Data** | Rainforest API, Keepa API, Amazon SP-API |
-| **Auth** | JWT + Google OAuth, Resend (transactional email) |
+| **Auth** | JWT (Bearer) + bcrypt + Google OAuth, Resend (transactional email) |
 | **Payments** | Stripe |
 | **Monorepo** | Turborepo, pnpm workspaces |
-| **Infra** | Docker Compose (Postgres + Redis), Railway, Vercel |
+| **Infra** | Vercel (app + cron), Neon or Supabase Postgres |
 
 ---
 
@@ -35,18 +35,17 @@ SourceTool helps Amazon FBA sellers find profitable products to resell. Look up 
 ```
 sourcetool/
 ├── apps/
-│   ├── api/          # NestJS backend — 15 modules
-│   ├── web/          # Next.js dashboard
+│   ├── web/          # Next.js dashboard + /api route handlers
 │   └── extension/    # Chrome extension MV3 with side panel
 ├── packages/
-│   ├── db/           # Prisma schema (22 models), client singleton
+│   ├── db/           # Prisma schema (22 models), Neon-aware client
 │   ├── shared/       # Shared TypeScript types, validators, constants
 │   ├── ui/           # shadcn/ui component library (13 components)
 │   └── ai/           # Claude + OpenAI providers, deal scoring
 ├── tooling/
 │   ├── eslint-config/
 │   └── tsconfig/
-├── docker-compose.yml
+├── vercel.json
 ├── turbo.json
 └── package.json
 ```
@@ -101,7 +100,7 @@ Keepa API (fallback)
 Amazon SP-API (supplemental)
 ```
 
-Orchestrated by `product-data-chain.service.ts` with retry logic and exponential backoff on all providers. Each provider has a dedicated service and mapper in `apps/api/src/modules/integrations/`.
+Orchestrated by `apps/web/src/lib/server/integrations/product-data-chain.service.ts` with retry logic and exponential backoff on all providers.
 
 ### Database
 
@@ -115,9 +114,9 @@ Orchestrated by `product-data-chain.service.ts` with retry logic and exponential
 
 ---
 
-## API Modules
+## API Routes
 
-The NestJS API uses feature-based organization (`apps/api/src/modules/`):
+Business logic lives in `apps/web/src/lib/server`; HTTP is Next.js App Router `route.ts` files under `apps/web/src/app/api`. Paths match the previous NestJS API so the Chrome extension does not need path changes. Auth is Bearer JWT (not cookie sessions).
 
 | Module | Endpoints | Description |
 |--------|-----------|-------------|
@@ -127,7 +126,7 @@ The NestJS API uses feature-based organization (`apps/api/src/modules/`):
 | `bulk-scan` | `/api/bulk-scans/*` | CSV upload, row processing, retry |
 | `buy-lists` | `/api/buy-lists/*` | List CRUD, item add/remove, batch add |
 | `sourced-products` | `/api/sourced-products/*` | Lifecycle tracking CRUD |
-| `product-watches` | `/api/product-watches/*` | Watch CRUD, alerts, scheduled checks |
+| `product-watches` | `/api/product-watches/*` | Watch CRUD, alerts |
 | `analytics` | `/api/analytics/*` | Summary, trends, breakdown, top products |
 | `history` | `/api/history/*` | Price, BSR, and offer history |
 | `ai` | `/api/ai/*` | Deal score, sell-through estimation |
@@ -136,6 +135,7 @@ The NestJS API uses feature-based organization (`apps/api/src/modules/`):
 | `teams` | `/api/teams/*` | Team management |
 | `billing` | `/api/billing/*` | Stripe subscriptions |
 | `export` | `/api/export/*` | CSV/PDF generation |
+| `cron` | `/api/cron/check-watches` | Vercel Cron (every 6 hours, `CRON_SECRET`) |
 
 ---
 
@@ -155,8 +155,7 @@ The NestJS API uses feature-based organization (`apps/api/src/modules/`):
 
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL
-- Redis
+- A Postgres database (Neon, Supabase, or local)
 
 ### Setup
 
@@ -168,25 +167,21 @@ pnpm install
 
 # Configure environment
 cp .env.example .env
-# Fill in DATABASE_URL, JWT_SECRET, and any API keys you have
+# Fill in DATABASE_URL, DIRECT_DATABASE_URL, JWT_SECRET, and any API keys you have
 
 # Database
+pnpm db:generate
 pnpm db:push
 
 # Run
-pnpm dev
+pnpm --filter @sourcetool/web dev
 ```
 
 This starts:
-- **API**: http://localhost:3001
-- **Web**: http://localhost:3000
+- **Web + API**: http://localhost:3000 (API under `/api`)
 - **Extension**: `pnpm --filter extension dev` then load `apps/extension/dist/chrome/` as unpacked extension in `chrome://extensions`
 
-### Docker (Postgres + Redis only)
-
-```bash
-docker compose up -d
-```
+See [DEPLOY.md](./DEPLOY.md) for Vercel + Neon/Supabase production setup.
 
 ---
 
@@ -211,9 +206,11 @@ See `.env.example` for the full list. Key ones:
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | Pooled Postgres URL (`pgbouncer=true&connection_limit=1`) |
+| `DIRECT_DATABASE_URL` | Yes | Unpooled URL for Prisma Migrate |
 | `JWT_SECRET` | Yes | Secret for signing access tokens |
 | `JWT_REFRESH_SECRET` | Yes | Secret for signing refresh tokens |
+| `CRON_SECRET` | Prod cron | Vercel sets this for `/api/cron/check-watches` |
 | `RAINFOREST_API_KEY` | For lookups | Primary product data source |
 | `KEEPA_API_KEY` | Fallback | Used if Rainforest fails |
 | `ANTHROPIC_API_KEY` | For AI | Claude API key for deal scoring |

@@ -1,11 +1,26 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
-  transpilePackages: ['@sourcetool/shared', '@sourcetool/ui'],
+  transpilePackages: [
+    '@sourcetool/shared',
+    '@sourcetool/ui',
+    '@sourcetool/db',
+    '@sourcetool/ai',
+  ],
   images: {
-    domains: ['m.media-amazon.com', 'images-na.ssl-images-amazon.com', 'i5.walmartimages.com', 'i.ebayimg.com'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'm.media-amazon.com' },
+      { protocol: 'https', hostname: 'images-na.ssl-images-amazon.com' },
+      { protocol: 'https', hostname: 'i5.walmartimages.com' },
+      { protocol: 'https', hostname: 'i.ebayimg.com' },
+    ],
   },
+  serverExternalPackages: [
+    '@neondatabase/serverless',
+    '@prisma/adapter-neon',
+    'ws',
+    'bcryptjs',
+  ],
 };
 
 export default nextConfig;
