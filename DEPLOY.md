@@ -11,10 +11,17 @@ separate NestJS/Railway/Docker service.
 
 ## 1. Database
 
-Use a managed serverless Postgres. Neon is the best fit for this Prisma schema;
-Supabase Postgres also works via its connection pooler.
+Use a managed serverless Postgres. **Reuse an existing project if you have one**
+— simplywise-cost-estimator already uses Supabase; that org's Postgres (pooled
+port 6543) can host this Prisma schema. Neon is the other good fit. Do not
+provision a new database until you've checked both.
 
-1. Create a project (Neon dashboard, or reuse an existing Supabase Postgres).
+If you use the Neon Vercel integration, it injects `DATABASE_URL` (pooled) and
+`DATABASE_URL_UNPOOLED`. Copy the unpooled value into `DIRECT_DATABASE_URL`
+(Prisma's schema key) — or add `DIRECT_DATABASE_URL` as an extra env var with
+the same value.
+
+1. Create a project only if you don't already have Neon or Supabase Postgres.
 2. Copy the **pooled** connection string into `DATABASE_URL`.
    - Neon: the URL whose host contains `-pooler`.
    - Supabase: the transaction pooler URL (port 6543).
@@ -34,9 +41,10 @@ automatically. Other hosts use the standard Prisma driver against the pooled URL
 ## 2. Vercel project
 
 1. Import the GitHub repo in Vercel.
-2. Set **Root Directory** to `apps/web` (include files outside the root directory).
-   Framework: Next.js. Install: `pnpm install` from the repo root is handled by
-   the root `vercel.json` if you deploy from `/` instead.
+2. Set **Root Directory** to `apps/web` and leave **Include source files outside
+   the Root Directory** enabled (the pnpm workspace lives at the repo root).
+   Framework: Next.js. `apps/web/vercel.json` runs `pnpm install` / Prisma generate
+   / `next build` from the workspace root and registers the 6-hour cron.
 3. Environment variables (Production + Preview):
 
 ```
