@@ -11,11 +11,15 @@ out/
 
 # Generated Prisma client
 packages/db/generated/
+apps/web/generated/
 
 # Environment
 .env
 .env.local
 .env.*.local
+.env.neon
+.env.vercel-preview
+.neon
 
 # IDE
 .vscode/

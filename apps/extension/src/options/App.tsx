@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 export function App() {
-  const [apiUrl, setApiUrl] = useState('http://localhost:3001/api');
+  const [apiUrl, setApiUrl] = useState('http://localhost:3000/api');
   const [saved, setSaved] = useState(false);
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 

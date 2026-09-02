@@ -5,21 +5,26 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
+    "build": "node ./scripts/with-db-urls.cjs --allow-placeholder -- prisma generate && tsc",
+    "db:generate": "node ./scripts/with-db-urls.cjs --allow-placeholder -- prisma generate",
+    "db:push": "node ./scripts/with-db-urls.cjs -- prisma db push",
+    "db:migrate": "node ./scripts/with-db-urls.cjs -- prisma migrate dev",
+    "db:migrate:deploy": "node ./scripts/with-db-urls.cjs -- prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit",
+    "test": "node --test scripts/with-db-urls.test.cjs",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0"
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-neon": "^6.19.2",
+    "@prisma/client": "^6.0.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@sourcetool/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.0",
     "prisma": "^6.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.7.0"

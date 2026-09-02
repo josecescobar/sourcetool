@@ -12,9 +12,12 @@
     "db:push": "turbo db:push",
     "db:migrate": "turbo db:migrate",
     "db:seed": "turbo db:seed",
+    "db:neon:provision": "bash scripts/neon-provision.sh",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@sourcetool/eslint-config": "workspace:*",
+    "eslint": "^8.57.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
   }

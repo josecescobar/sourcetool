@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && bash scripts/vercel-build.sh",
+  "crons": [
+    {
+      "path": "/api/cron/check-watches",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

@@ -6,19 +6,6 @@ on:
       - 'v*'
 
 jobs:
-  deploy-api:
-    name: Deploy API
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy to Railway
-        if: env.RAILWAY_TOKEN != ''
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          npm install -g @railway/cli
-          railway up --service api
-
   deploy-web:
     name: Deploy Web
     runs-on: ubuntu-latest
