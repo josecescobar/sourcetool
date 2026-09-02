@@ -5,7 +5,7 @@ import { AiService } from '../ai/ai.service';
 import type { Marketplace, FulfillmentType } from '@sourcetool/shared';
 import { ApiError } from '../http';
 import { createLogger } from '../logger';
-import { runAfter } from '../after';
+import { LOOKUP_BATCH_SIZE, chainNewInvocation } from '../self-invoke';
 
 interface CreateBulkScanInput {
   fileName: string;
@@ -52,7 +52,7 @@ export class BulkScanService {
       return bulkScan;
     });
 
-    runAfter(() => this.processAsync(scan.id, teamId, userId));
+    this.scheduleContinue(scan.id, teamId, userId);
 
     return scan;
   }
@@ -92,21 +92,26 @@ export class BulkScanService {
       throw new ApiError(400, 'Can only retry a completed scan');
     }
 
-    const failedRows = await prisma.bulkScanRow.findMany({
+    const failedCount = await prisma.bulkScanRow.count({
       where: { bulkScanId: scanId, status: 'FAILED' },
-      orderBy: { rowNumber: 'asc' },
     });
 
-    if (failedRows.length === 0) {
+    if (failedCount === 0) {
       throw new ApiError(400, 'No failed rows to retry');
     }
 
-    await prisma.bulkScan.update({
-      where: { id: scanId },
-      data: { status: 'PROCESSING' },
+    await prisma.bulkScanRow.updateMany({
+      where: { bulkScanId: scanId, status: 'FAILED' },
+      data: { status: 'PENDING', error: null, processedAt: null },
     });
 
-    runAfter(() => this.processRetryAsync(scanId, teamId, userId, failedRows));
+    await prisma.bulkScan.update({
+      where: { id: scanId },
+      data: { status: 'PROCESSING', completedAt: null },
+    });
+    await this.refreshScanCounts(scanId);
+
+    this.scheduleContinue(scanId, teamId, userId);
 
     return prisma.bulkScan.findUnique({ where: { id: scanId } });
   }
@@ -115,24 +120,34 @@ export class BulkScanService {
     return prisma.bulkScan.delete({ where: { id } });
   }
 
-  // ─── Private ──────────────────────────────────────────────────────
+  /**
+   * Process one bounded batch of PENDING rows, then hop to a new invocation
+   * if work remains. Safe under Vercel maxDuration=300.
+   */
+  async processChunk(
+    scanId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<{ processed: number; remaining: number; done: boolean }> {
+    const existing = await prisma.bulkScan.findUnique({ where: { id: scanId } });
+    if (!existing) return { processed: 0, remaining: 0, done: true };
 
-  private async processAsync(scanId: string, teamId: string, userId: string): Promise<void> {
     await prisma.bulkScan.update({
       where: { id: scanId },
-      data: { status: 'PROCESSING', startedAt: new Date() },
+      data: { status: 'PROCESSING', startedAt: existing.startedAt ?? new Date() },
     });
 
     const scan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
-    if (!scan) return;
+    if (!scan) return { processed: 0, remaining: 0, done: true };
 
     const rows = await prisma.bulkScanRow.findMany({
-      where: { bulkScanId: scanId },
+      where: { bulkScanId: scanId, status: 'PENDING' },
       orderBy: { rowNumber: 'asc' },
+      take: LOOKUP_BATCH_SIZE,
     });
 
-    // In-memory cache to dedup API calls for identical identifiers
     const productCache = new Map<string, { product: any; fromApi: boolean } | { error: string }>();
+    let lookups = 0;
 
     for (const row of rows) {
       try {
@@ -145,11 +160,10 @@ export class BulkScanService {
         let cached = productCache.get(cacheKey);
 
         if (!cached) {
-          // Fresh lookup needed — rate limit
-          const needsDelay = productCache.size > 0; // not the first call
-          if (needsDelay) {
+          if (lookups > 0) {
             await this.delay(1500);
           }
+          lookups += 1;
 
           try {
             const product = await this.productsService.lookup(
@@ -208,13 +222,6 @@ export class BulkScanService {
           },
         });
 
-        await prisma.bulkScan.update({
-          where: { id: scanId },
-          data: {
-            processedRows: { increment: 1 },
-            successRows: { increment: 1 },
-          },
-        });
       } catch (err: any) {
         this.logger.warn(`Row ${row.rowNumber} failed: ${err.message}`);
 
@@ -227,26 +234,26 @@ export class BulkScanService {
           },
         });
 
-        await prisma.bulkScan.update({
-          where: { id: scanId },
-          data: {
-            processedRows: { increment: 1 },
-            failedRows: { increment: 1 },
-          },
-        });
       }
     }
 
-    // Generate an AI summary of the batch before marking complete, so it's
-    // ready by the time the frontend's next poll sees status COMPLETED.
+    await this.refreshScanCounts(scanId);
+    const remaining = await prisma.bulkScanRow.count({
+      where: { bulkScanId: scanId, status: 'PENDING' },
+    });
+
+    if (remaining > 0) {
+      this.scheduleContinue(scanId, teamId, userId);
+      return { processed: rows.length, remaining, done: false };
+    }
+
     const finalScan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
     const aiSummary = finalScan ? await this.generateSummary(finalScan) : null;
-
-    // Mark scan as completed
     await prisma.bulkScan.update({
       where: { id: scanId },
       data: { status: 'COMPLETED', completedAt: new Date(), aiSummary },
     });
+    return { processed: rows.length, remaining: 0, done: true };
   }
 
   private async generateSummary(scan: {
@@ -311,94 +318,26 @@ export class BulkScanService {
     }
   }
 
-  private async processRetryAsync(
-    scanId: string,
-    teamId: string,
-    userId: string,
-    failedRows: Array<{ id: string; rowNumber: number; identifier: string; buyPrice: any }>,
-  ): Promise<void> {
-    const scan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
-    if (!scan) return;
+  private scheduleContinue(scanId: string, teamId: string, userId: string) {
+    chainNewInvocation(
+      '/api/cron/process-bulk-scan',
+      { method: 'POST', body: { scanId, teamId, userId } },
+      () => this.processChunk(scanId, teamId, userId),
+    );
+  }
 
-    for (let i = 0; i < failedRows.length; i++) {
-      const row = failedRows[i]!;
-      try {
-        const buyPrice = row.buyPrice ?? scan.defaultBuyPrice;
-        if (buyPrice == null) {
-          throw new Error('No buy price provided');
-        }
-
-        if (i > 0) {
-          await this.delay(1500);
-        }
-
-        const product = await this.productsService.lookup(
-          row.identifier,
-          scan.marketplace as Marketplace,
-        );
-
-        const listing = product.listings?.find(
-          (l: any) => l.marketplace === scan.marketplace,
-        );
-
-        const sellPrice = listing?.buyBoxPrice ?? listing?.currentPrice;
-        if (!sellPrice) {
-          throw new Error('No sell price available for this marketplace');
-        }
-
-        const analysisResult = await this.analysisService.calculate(
-          {
-            productId: product.id,
-            asin: product.asin,
-            marketplace: scan.marketplace as Marketplace,
-            fulfillmentType: scan.fulfillmentType as FulfillmentType,
-            buyPrice,
-            sellPrice,
-            category: product.category ?? undefined,
-            dimensions: product.dimensions as any,
-          },
-          userId,
-          teamId,
-        );
-
-        await prisma.bulkScanRow.update({
-          where: { id: row.id },
-          data: {
-            status: 'SUCCESS',
-            productId: product.id,
-            analysisId: analysisResult.analysisId,
-            error: null,
-            processedAt: new Date(),
-          },
-        });
-
-        await prisma.bulkScan.update({
-          where: { id: scanId },
-          data: {
-            successRows: { increment: 1 },
-            failedRows: { decrement: 1 },
-          },
-        });
-      } catch (err: any) {
-        this.logger.warn(`Retry row ${row.rowNumber} failed: ${err.message}`);
-
-        await prisma.bulkScanRow.update({
-          where: { id: row.id },
-          data: {
-            error: err.message || 'Unknown error',
-            processedAt: new Date(),
-          },
-        });
-      }
-    }
-
-    // Refresh the AI summary — the retry may have turned failures into successes.
-    const finalScan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
-    const aiSummary = finalScan ? await this.generateSummary(finalScan) : null;
-
+  private async refreshScanCounts(scanId: string) {
+    const [successRows, failedRows] = await Promise.all([
+      prisma.bulkScanRow.count({ where: { bulkScanId: scanId, status: 'SUCCESS' } }),
+      prisma.bulkScanRow.count({ where: { bulkScanId: scanId, status: 'FAILED' } }),
+    ]);
     await prisma.bulkScan.update({
       where: { id: scanId },
-      data: { status: 'COMPLETED', aiSummary },
+      data: {
+        successRows,
+        failedRows,
+        processedRows: successRows + failedRows,
+      },
     });
   }
 

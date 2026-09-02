@@ -6,6 +6,14 @@ import { createLogger } from '../logger';
 
 const RATE_LIMIT_MS = 1500;
 
+export type WatchCheckBatch = {
+  checked: number;
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+  done: boolean;
+};
+
 export class WatchCheckerService {
   private readonly logger = createLogger('WatchCheckerService');
 
@@ -14,8 +22,11 @@ export class WatchCheckerService {
     private watchesService: ProductWatchesService,
   ) {}
 
-  async checkWatchedProducts() {
-    this.logger.log('Starting scheduled watch check...');
+  async checkWatchedProducts(options: { offset?: number; limit?: number } = {}): Promise<WatchCheckBatch> {
+    const offset = Math.max(0, options.offset ?? 0);
+    const limit = options.limit ?? 40;
+
+    this.logger.log(`Starting scheduled watch check (offset=${offset}, limit=${limit})...`);
 
     const watches = await prisma.productWatch.findMany({
       where: { enabled: true },
@@ -26,7 +37,7 @@ export class WatchCheckerService {
 
     if (!watches.length) {
       this.logger.log('No active watches to check');
-      return;
+      return { checked: 0, total: 0, offset, nextOffset: null, done: true };
     }
 
     // Group by productId + marketplace to avoid duplicate fetches
@@ -42,12 +53,18 @@ export class WatchCheckerService {
       }
     }
 
+    const ordered = [...groups.values()].sort((a, b) =>
+      `${a.productId}:${a.marketplace}`.localeCompare(`${b.productId}:${b.marketplace}`),
+    );
+    const batch = ordered.slice(offset, offset + limit);
+    const nextOffset = offset + batch.length < ordered.length ? offset + batch.length : null;
+
     this.logger.log(
-      `Checking ${groups.size} unique product-marketplace combinations for ${watches.length} watches`,
+      `Checking ${batch.length}/${ordered.length} unique product-marketplace combinations (watches=${watches.length})`,
     );
 
     let checked = 0;
-    for (const [, group] of groups) {
+    for (const group of batch) {
       try {
         if (!group.asin) continue;
 
@@ -105,6 +122,13 @@ export class WatchCheckerService {
       await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_MS));
     }
 
-    this.logger.log(`Watch check complete: ${checked}/${groups.size} products checked`);
+    this.logger.log(`Watch check batch complete: ${checked}/${batch.length} (total ${ordered.length})`);
+    return {
+      checked,
+      total: ordered.length,
+      offset,
+      nextOffset,
+      done: nextOffset === null,
+    };
   }
 }
