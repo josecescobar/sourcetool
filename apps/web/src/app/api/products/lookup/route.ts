@@ -1,4 +1,4 @@
-import { enforcePlanLimit, requireTeamRole } from '@/lib/server/guards';
+import { enforcePlanLimit, planAllowsAi, requireTeamRole } from '@/lib/server/guards';
 import { handleRoute, jsonOk, readJson } from '@/lib/server/http';
 import { productsService } from '@/lib/server/services';
 import type { Marketplace } from '@sourcetool/shared';
@@ -6,7 +6,8 @@ import type { Marketplace } from '@sourcetool/shared';
 async function lookupFromRequest(req: Request, identifier: string, marketplace?: Marketplace) {
   const { teamId } = await requireTeamRole(req, ['OWNER', 'ADMIN', 'VA', 'VIEWER']);
   await enforcePlanLimit(teamId, 'lookup');
-  return jsonOk(await productsService.lookup(identifier, marketplace));
+  const aiRiskFlags = await planAllowsAi(teamId);
+  return jsonOk(await productsService.lookup(identifier, marketplace, { aiRiskFlags }));
 }
 
 export const GET = handleRoute(async (req) => {

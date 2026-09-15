@@ -5,7 +5,15 @@ import { ApiError, PlanLimitError } from './http';
 import { requireAuth, type AuthUser } from './auth/jwt';
 
 export type TeamRole = 'OWNER' | 'ADMIN' | 'VA' | 'VIEWER';
-export type PlanActionType = 'lookup' | 'bulk_scan' | 'ai_verdict' | 'export' | 'team_invite';
+export type PlanActionType =
+  | 'lookup'
+  | 'bulk_scan'
+  | 'ai_verdict'
+  // CSV is a Starter feature; Google Sheets stays Pro+. They were previously
+  // collapsed into one 'export' gate that contradicted the advertised plans.
+  | 'export_csv'
+  | 'export'
+  | 'team_invite';
 
 export type TeamContext = {
   user: AuthUser;
@@ -127,6 +135,18 @@ export async function enforcePlanLimit(teamId: string | undefined, action: PlanA
       await incrementUsage(teamId, today, 'aiVerdictCount');
       break;
     }
+    case 'export_csv': {
+      if (planTier === 'FREE') {
+        throw new PlanLimitError({
+          error: 'Plan limit reached',
+          feature: 'export_csv',
+          limit: 0,
+          current: 0,
+        });
+      }
+      await incrementUsage(teamId, today, 'exportCount');
+      break;
+    }
     case 'export': {
       if (planTier !== 'PROFESSIONAL' && planTier !== 'ENTERPRISE') {
         throw new PlanLimitError({
@@ -151,6 +171,37 @@ export async function enforcePlanLimit(teamId: string | undefined, action: PlanA
       }
       break;
     }
+  }
+}
+
+/** Non-throwing plan check, for optional AI enrichment on shared resources. */
+export async function planAllowsAi(teamId: string | undefined): Promise<boolean> {
+  if (!teamId) return false;
+  const subscription = await prisma.subscription.findUnique({ where: { teamId } });
+  const planTier = (subscription?.planTier || 'FREE') as PlanTier;
+  return SUBSCRIPTION_PLANS[planTier].aiVerdicts;
+}
+
+/**
+ * Every plan declares maxBulkScanRows but nothing enforced it, so a single
+ * upload could queue unbounded provider lookups against paid API credits.
+ */
+export async function enforceBulkScanRowLimit(teamId: string | undefined, rowCount: number) {
+  if (!teamId) return;
+
+  const subscription = await prisma.subscription.findUnique({ where: { teamId } });
+  const planTier = (subscription?.planTier || 'FREE') as PlanTier;
+  const maxRows = SUBSCRIPTION_PLANS[planTier].maxBulkScanRows;
+
+  if (maxRows === Infinity) return;
+
+  if (rowCount > maxRows) {
+    throw new PlanLimitError({
+      error: 'Plan limit reached',
+      feature: 'bulk_scan_rows',
+      limit: maxRows,
+      current: rowCount,
+    });
   }
 }
 

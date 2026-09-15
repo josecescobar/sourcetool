@@ -16,12 +16,25 @@ export type AuthUser = {
   teamId?: string;
 };
 
+/**
+ * Falling back to a hardcoded secret in production would let anyone who has
+ * read the source mint valid tokens, so outside development this must throw.
+ */
+function requireSecret(name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', devFallback: string) {
+  const value = process.env[name];
+  if (value) return value;
+  if (process.env.NODE_ENV === 'production') {
+    throw new ApiError(500, `${name} is not configured`);
+  }
+  return devFallback;
+}
+
 function jwtSecret() {
-  return process.env.JWT_SECRET || 'dev-secret-change-me';
+  return requireSecret('JWT_SECRET', 'dev-secret-change-me');
 }
 
 function jwtRefreshSecret() {
-  return process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret';
+  return requireSecret('JWT_REFRESH_SECRET', 'dev-refresh-secret');
 }
 
 function accessExpiry(): SignOptions['expiresIn'] {

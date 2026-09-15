@@ -1,6 +1,7 @@
 import { prisma } from '@sourcetool/db';
 import type { Marketplace } from '@sourcetool/shared';
 import { ApiError } from '../http';
+import type { CalibrationService } from '../calibration/calibration.service';
 
 interface CreateInput {
   productId: string;
@@ -11,6 +12,8 @@ interface CreateInput {
   listingDate?: string;
   listingPrice?: number;
   notes?: string;
+  /** The analysis that justified the buy. Inferred when the caller omits it. */
+  analysisId?: string;
 }
 
 interface UpdateInput {
@@ -27,6 +30,8 @@ interface UpdateInput {
 }
 
 export class SourcedProductsService {
+  constructor(private calibrationService: CalibrationService) {}
+
   async getAll(teamId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
@@ -65,12 +70,25 @@ export class SourcedProductsService {
   }
 
   async create(teamId: string, input: CreateInput) {
+    const purchaseDate = new Date(input.purchaseDate);
+
+    // Sellers record purchases without thinking about which analysis drove
+    // them, so infer the link rather than leaving the loop open.
+    const analysisId =
+      input.analysisId ??
+      (await this.calibrationService.findLikelyAnalysisId(
+        teamId,
+        input.productId,
+        purchaseDate,
+      ));
+
     return prisma.sourcedProduct.create({
       data: {
         teamId,
         productId: input.productId,
+        analysisId,
         marketplace: input.marketplace,
-        purchaseDate: new Date(input.purchaseDate),
+        purchaseDate,
         purchasePrice: input.purchasePrice,
         quantity: input.quantity,
         listingDate: input.listingDate ? new Date(input.listingDate) : undefined,

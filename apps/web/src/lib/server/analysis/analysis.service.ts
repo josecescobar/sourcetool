@@ -1,12 +1,22 @@
 import { ProfitCalculatorEngine } from './engines/profit-calculator.engine';
 import { prisma } from '@sourcetool/db';
-import type { CalculateInput, BreakevenInput } from '@sourcetool/shared';
+import type { CalculateInput, BreakevenInput, DecisionSnapshot } from '@sourcetool/shared';
+
+/** Extra decision-time context to freeze alongside the forecast. */
+export type AnalysisContext = DecisionSnapshot;
 
 export class AnalysisService {
   constructor(private engine: ProfitCalculatorEngine) {}
 
-  async calculate(input: CalculateInput, userId: string, teamId: string): Promise<any> {
+  async calculate(
+    input: CalculateInput,
+    userId: string,
+    teamId: string,
+    context: AnalysisContext = {},
+  ): Promise<any> {
     const result = this.engine.calculate(input);
+
+    const snapshot = buildSnapshot(input, context);
 
     // Save analysis to DB
     const analysis = await prisma.productAnalysis.create({
@@ -28,6 +38,9 @@ export class AnalysisService {
         roi: result.roi,
         margin: result.margin,
         breakeven: result.breakeven,
+        aiScore: context.aiScore,
+        aiVerdict: context.aiVerdict,
+        snapshot: snapshot as object,
       },
     });
 
@@ -60,4 +73,30 @@ export class AnalysisService {
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
+}
+
+/**
+ * Only defined fields are kept: a snapshot full of nulls would make it
+ * impossible to tell "we knew the BSR was absent" from "we never recorded it".
+ */
+function buildSnapshot(input: CalculateInput, context: AnalysisContext): DecisionSnapshot {
+  const snapshot: DecisionSnapshot = {
+    category: context.category ?? input.category,
+    brand: context.brand,
+    bsr: context.bsr,
+    offerCount: context.offerCount,
+    fbaOfferCount: context.fbaOfferCount,
+    isAmazonSelling: context.isAmazonSelling,
+    rating: context.rating,
+    reviewCount: context.reviewCount,
+    aiScore: context.aiScore,
+    aiVerdict: context.aiVerdict,
+    aiConfidence: context.aiConfidence,
+  };
+
+  for (const key of Object.keys(snapshot) as Array<keyof DecisionSnapshot>) {
+    if (snapshot[key] === undefined) delete snapshot[key];
+  }
+
+  return snapshot;
 }

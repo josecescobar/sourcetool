@@ -20,7 +20,15 @@ export class ProductsService {
     private aiService: AiService,
   ) {}
 
-  async lookup(identifier: string, marketplace?: Marketplace): Promise<any> {
+  /**
+   * `aiRiskFlags` is opt-in because risk-flag inference costs AI credits and the
+   * product catalogue is shared. Only plans with AI entitlement pay to fill it in.
+   */
+  async lookup(
+    identifier: string,
+    marketplace?: Marketplace,
+    opts: { aiRiskFlags?: boolean } = {},
+  ): Promise<any> {
     const detected = detectIdentifier(identifier);
 
     let product;
@@ -74,7 +82,7 @@ export class ProductsService {
       throw new ApiError(404, `Product not found: ${identifier}`);
     }
 
-    return this.persistExternalProduct(external);
+    return this.persistExternalProduct(external, opts.aiRiskFlags ?? false);
   }
 
   async getById(id: string): Promise<any> {
@@ -157,6 +165,7 @@ export class ProductsService {
 
   private async persistExternalProduct(
     data: ExternalProductData,
+    aiRiskFlags = false,
   ): Promise<any> {
     const product = await prisma.product.upsert({
       where: { asin: data.asin ?? '' },
@@ -233,7 +242,7 @@ export class ProductsService {
       );
     }
 
-    await this.generateAlertsIfNeeded(product);
+    await this.generateAlertsIfNeeded(product, aiRiskFlags);
 
     // Re-fetch so callers see any freshly-created listing/alerts
     return prisma.product.findUnique({
@@ -244,14 +253,17 @@ export class ProductsService {
 
   // Generate risk-flag alerts the first time we see a product; skipped once
   // it already has alerts so we don't re-call AI on every refresh.
-  private async generateAlertsIfNeeded(product: {
-    id: string;
-    title: string;
-    brand: string | null;
-    category: string | null;
-    dimensions: unknown;
-    alerts?: unknown[];
-  }): Promise<void> {
+  private async generateAlertsIfNeeded(
+    product: {
+      id: string;
+      title: string;
+      brand: string | null;
+      category: string | null;
+      dimensions: unknown;
+      alerts?: unknown[];
+    },
+    aiRiskFlags: boolean,
+  ): Promise<void> {
     if (product.alerts && product.alerts.length > 0) {
       return;
     }
@@ -287,6 +299,13 @@ export class ProductsService {
     }
 
     // AI-inferred: risks that need judgment from the product's text, not raw data.
+    if (!aiRiskFlags) {
+      if (alertsToCreate.length > 0) {
+        await prisma.alert.createMany({ data: alertsToCreate });
+      }
+      return;
+    }
+
     try {
       const flags = await this.aiService.getRiskFlags({
         title: product.title,
@@ -331,7 +350,8 @@ export class ProductsService {
   ): void {
     runAfter(async () => {
       const data = await this.fetchFromExternal(value, type, marketplace);
-      if (data) await this.persistExternalProduct(data);
+      // Background refresh never triggers paid AI inference.
+      if (data) await this.persistExternalProduct(data, false);
     });
   }
 

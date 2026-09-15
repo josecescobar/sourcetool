@@ -135,7 +135,7 @@ Business logic lives in `apps/web/src/lib/server`; HTTP is Next.js App Router `r
 | `teams` | `/api/teams/*` | Team management |
 | `billing` | `/api/billing/*` | Stripe subscriptions |
 | `export` | `/api/export/*` | CSV/PDF generation |
-| `cron` | `/api/cron/check-watches` | Vercel Cron (every 6 hours, `CRON_SECRET`) |
+| `cron` | `/api/cron/check-watches` | Watch checker (`CRON_SECRET`; invoke manually on Hobby) |
 
 ---
 

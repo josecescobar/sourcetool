@@ -20,6 +20,15 @@ Factor Weights:
 - Demand (25%): BSR ranking, BSR trend, review velocity
 - Risk (15%): IP complaints, hazmat, restrictions, meltable, oversized
 
+Seller Track Record:
+If a SELLER TRACK RECORD section is present, it reports what this specific
+seller actually realized on past deals compared to what was forecast. Treat it
+as evidence about this seller's real-world execution — sourcing conditions,
+pricing discipline, and time to sell — and weight it above generic heuristics.
+When their realized returns have consistently fallen short of forecast, score
+more conservatively and say so in your reasoning. Never restate the raw track
+record numbers back to the user; reflect them in the score and the explanation.
+
 Respond ONLY with valid JSON matching this exact format:
 {
   "score": <number 0-100>,
@@ -73,6 +82,7 @@ export function buildDealScoreUserMessage(input: {
     isMeltable: boolean;
     isOversized: boolean;
   };
+  calibration?: string;
 }): string {
   return `Analyze this product deal:
 
@@ -111,6 +121,9 @@ ${input.alerts ? `RISK ALERTS:
 - Restricted: ${input.alerts.isRestricted ? 'YES ⚠️' : 'No'}
 - Meltable: ${input.alerts.isMeltable ? 'YES ⚠️' : 'No'}
 - Oversized: ${input.alerts.isOversized ? 'YES ⚠️' : 'No'}` : ''}
+
+${input.calibration ? `SELLER TRACK RECORD (realized vs forecast on their own past deals):
+${input.calibration}` : ''}
 
 Provide your deal score analysis as JSON.`;
 }

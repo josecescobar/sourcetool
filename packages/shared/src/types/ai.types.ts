@@ -39,6 +39,12 @@ export interface DealScoreInput {
     isMeltable: boolean;
     isOversized: boolean;
   };
+  /**
+   * This seller's own realized track record, pre-formatted as prompt lines.
+   * Anchors the score to what they actually achieve rather than to generic
+   * sourcing heuristics. Omitted until there is enough history to be useful.
+   */
+  calibration?: string;
 }
 
 export interface DealScoreOutput {

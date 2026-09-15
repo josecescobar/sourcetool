@@ -2,6 +2,7 @@
 export * from './types/product.types';
 export * from './types/analysis.types';
 export * from './types/ai.types';
+export * from './types/calibration.types';
 export * from './types/marketplace.types';
 export * from './types/team.types';
 export * from './types/api-response.types';
