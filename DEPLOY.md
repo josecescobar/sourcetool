@@ -7,7 +7,7 @@ separate NestJS/Railway/Docker service.
 |-------|----------------|
 | Web + API | Vercel (`apps/web`, routes under `/api/*`) |
 | Postgres | Neon (Prisma + `@prisma/adapter-neon`) |
-| Watch checker | Vercel Cron → `GET /api/cron/check-watches` daily at 06:00 UTC |
+| Watch checker | `GET /api/cron/check-watches` (route exists; cron is off on Hobby) |
 
 ## 1. Database (Neon)
 
@@ -68,7 +68,7 @@ not open a standing TCP pool.
 2. Set **Root Directory** to `apps/web` and leave **Include source files outside
    the Root Directory** enabled (the pnpm workspace lives at the repo root).
    Framework: Next.js. `apps/web/vercel.json` runs `pnpm install` / Prisma generate
-   / `next build` from the workspace root and registers the daily watch-check cron.
+   / `next build` from the workspace root.
    CLI deploys must be run from `apps/web` so Vercel detects Next.js (a repo-root
    deploy looks for a static `public/` folder). Do not set
    `outputFileTracingRoot` to the monorepo root — the Next.js builder then looks
@@ -110,14 +110,20 @@ Do **not** set `NEXT_PUBLIC_API_URL` to a separate API host — routes are same-
 
 `apps/web/vercel.json` registers:
 
-```
-0 6 * * *  →  GET /api/cron/check-watches
-```
+The route is `GET /api/cron/check-watches`. Vercel sends
+`Authorization: Bearer $CRON_SECRET`; the route rejects any other caller.
 
-Vercel sends `Authorization: Bearer $CRON_SECRET`. The route rejects any other caller.
+`apps/web/vercel.json` ships `"crons": []`. Hobby rejected every deploy while a
+cron was registered — first because `0 */6 * * *` runs more than once per day,
+then because a leftover 6-hour job on the production project still failed the
+same plan check. Call the route with `CRON_SECRET` (or an external scheduler)
+until the project is on Pro, then restore:
 
-Hobby accounts only allow one run per day. The schedule is daily at 06:00 UTC so
-the project deploys on Hobby; on Pro you can change it back to `0 */6 * * *`.
+```
+{
+  "crons": [{ "path": "/api/cron/check-watches", "schedule": "0 6 * * *" }]
+}
+```
 
 Large watch lists and bulk scans run in **20-lookup batches**. Each batch hops to a
 new invocation (`/api/cron/check-watches?offset=` or `POST /api/cron/process-bulk-scan`)
