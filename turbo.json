@@ -18,7 +18,11 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      // Integration tests skip themselves without a database. Turbo filters the
+      // environment by default, so these have to be declared or they never
+      // reach the task and the tests quietly no-op.
+      "env": ["DATABASE_URL", "DIRECT_DATABASE_URL"]
     },
     "clean": {
       "cache": false

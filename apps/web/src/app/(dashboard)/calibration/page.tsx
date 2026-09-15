@@ -151,6 +151,12 @@ export default function CalibrationPage() {
                     Forecast: s.predictedRoi,
                     Realized: s.realizedRoi,
                   }))}
+                  // Keep each forecast/realized pair visually welded together and
+                  // the categories far apart, so it reads as five comparisons
+                  // rather than ten unrelated bars.
+                  barGap={2}
+                  barCategoryGap="30%"
+                  margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#9ca3af" />
@@ -161,8 +167,8 @@ export default function CalibrationPage() {
                   />
                   <Tooltip formatter={(value: number) => `${value}%`} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="Forecast" fill="#c7d2fe" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Realized" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Forecast" fill="#c7d2fe" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                  <Bar dataKey="Realized" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
