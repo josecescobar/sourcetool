@@ -18,6 +18,8 @@ export default function ProductsPage() {
   const [buyListOpen, setBuyListOpen] = useState(false);
   const [buyListMessage, setBuyListMessage] = useState('');
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
+  const [verdict, setVerdict] = useState<any>(null);
+  const [scoring, setScoring] = useState(false);
 
   const { searches, fetchSearches, saveSearch, removeSearch } = useSavedSearches();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +34,7 @@ export default function ProductsPage() {
     setError('');
     setProduct(null);
     setAnalysis(null);
+    setVerdict(null);
     setQuery(searchQuery);
     setLastSearchedQuery(searchQuery.trim());
 
@@ -60,9 +63,12 @@ export default function ProductsPage() {
 
   const isAlreadySaved = searches.some((s) => s.query === lastSearchedQuery);
 
+  const listing = product?.listings?.[0];
+
   const handleCalculate = async () => {
     if (!product || !buyPrice) return;
     setLoading(true);
+    setVerdict(null);
     try {
       const data = await apiClient.post('/analysis/calculate', {
         productId: product.id,
@@ -70,14 +76,61 @@ export default function ProductsPage() {
         marketplace: 'AMAZON_US',
         fulfillmentType: 'FBA',
         buyPrice: parseFloat(buyPrice),
-        sellPrice: product.listings?.[0]?.currentPrice || 0,
+        sellPrice: listing?.currentPrice || 0,
         category: product.category,
+        snapshot: {
+          category: product.category,
+          brand: product.brand,
+          bsr: listing?.bsr,
+          offerCount: listing?.offerCount,
+          fbaOfferCount: listing?.fbaOfferCount,
+          isAmazonSelling: listing?.isAmazonSelling,
+          rating: listing?.rating,
+          reviewCount: listing?.reviewCount,
+        },
       });
       if (data.success) setAnalysis(data.data);
     } catch {
       setError('Calculation failed');
     }
     setLoading(false);
+  };
+
+  const handleScore = async () => {
+    if (!product || !analysis) return;
+    setScoring(true);
+    try {
+      const data = await apiClient.post('/ai/deal-score', {
+        analysisId: analysis.analysisId,
+        product: {
+          title: product.title,
+          asin: product.asin,
+          category: product.category,
+          brand: product.brand,
+          bsr: listing?.bsr,
+          rating: listing?.rating,
+          reviewCount: listing?.reviewCount,
+        },
+        profitability: {
+          buyPrice: analysis.buyPrice,
+          sellPrice: analysis.sellPrice,
+          profit: analysis.profit,
+          roi: analysis.roi,
+          margin: analysis.margin,
+          fees: analysis.fees?.totalFees ?? 0,
+        },
+        competition: {
+          offerCount: listing?.offerCount,
+          fbaOfferCount: listing?.fbaOfferCount,
+          isAmazonSelling: listing?.isAmazonSelling,
+          buyBoxPrice: listing?.buyBoxPrice,
+        },
+      });
+      if (data.success) setVerdict(data.data);
+    } catch {
+      setError('AI scoring failed');
+    }
+    setScoring(false);
   };
 
   return (
@@ -219,6 +272,7 @@ export default function ProductsPage() {
             </div>
 
             {analysis && (
+              <>
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="rounded-lg bg-gray-50 p-3">
                   <div className="text-xs text-muted-foreground">Profit</div>
@@ -257,6 +311,28 @@ export default function ProductsPage() {
                   <div className="text-sm font-medium">${analysis.breakeven?.toFixed(2)}</div>
                 </div>
               </div>
+              <div className="mt-4">
+                {!verdict ? (
+                  <button
+                    onClick={handleScore}
+                    disabled={scoring}
+                    className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {scoring ? 'Scoring...' : 'Get AI Verdict'}
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{verdict.verdict?.replace(/_/g, ' ')}</span>
+                      <span className="text-lg font-bold">{verdict.score}/100</span>
+                    </div>
+                    {verdict.reasoning && (
+                      <p className="text-sm text-muted-foreground mt-1">{verdict.reasoning}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              </>
             )}
           </div>
         </div>

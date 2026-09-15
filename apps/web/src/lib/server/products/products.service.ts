@@ -60,6 +60,18 @@ export class ProductsService {
 
     // Found in DB — check freshness
     if (product) {
+      // A cheaper plan may have created this row with only rule-based flags.
+      // Entitled callers still get AI inference on a cache hit; without this,
+      // the first free lookup permanently starves Pro of IP/hazmat warnings.
+      if (opts.aiRiskFlags) {
+        await this.generateAlertsIfNeeded(product, true);
+        const refreshed = await prisma.product.findUnique({
+          where: { id: product.id },
+          include: { listings: true, alerts: true },
+        });
+        if (refreshed) product = refreshed;
+      }
+
       const listing = product.listings?.find(
         (l: any) => l.marketplace === mp,
       );
@@ -251,8 +263,9 @@ export class ProductsService {
     });
   }
 
-  // Generate risk-flag alerts the first time we see a product; skipped once
-  // it already has alerts so we don't re-call AI on every refresh.
+  // Rule-based flags can land on a free lookup. AI flags are added later when
+  // an entitled caller hits the same shared product — we must not treat an
+  // oversize alert as "already inferred" and skip paid enrichment forever.
   private async generateAlertsIfNeeded(
     product: {
       id: string;
@@ -264,14 +277,12 @@ export class ProductsService {
     },
     aiRiskFlags: boolean,
   ): Promise<void> {
-    if (product.alerts && product.alerts.length > 0) {
-      return;
-    }
-
-    const existingCount = await prisma.alert.count({ where: { productId: product.id } });
-    if (existingCount > 0) {
-      return;
-    }
+    const existing = await prisma.alert.findMany({
+      where: { productId: product.id },
+      select: { alertType: true, source: true },
+    });
+    const hasOversize = existing.some((a) => a.alertType === AlertType.OVERSIZED);
+    const hasAiInference = existing.some((a) => a.source === 'AI_INFERENCE');
 
     const alertsToCreate: Array<{
       productId: string;
@@ -287,7 +298,7 @@ export class ProductsService {
       | { lengthInches: number; widthInches: number; heightInches: number; weightPounds: number }
       | null
       | undefined;
-    if (dims && isOversizeDimensions(dims)) {
+    if (!hasOversize && dims && isOversizeDimensions(dims)) {
       alertsToCreate.push({
         productId: product.id,
         alertType: AlertType.OVERSIZED,
@@ -299,7 +310,7 @@ export class ProductsService {
     }
 
     // AI-inferred: risks that need judgment from the product's text, not raw data.
-    if (!aiRiskFlags) {
+    if (!aiRiskFlags || hasAiInference) {
       if (alertsToCreate.length > 0) {
         await prisma.alert.createMany({ data: alertsToCreate });
       }
