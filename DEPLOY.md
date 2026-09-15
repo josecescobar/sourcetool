@@ -113,11 +113,14 @@ Do **not** set `NEXT_PUBLIC_API_URL` to a separate API host — routes are same-
 The route is `GET /api/cron/check-watches`. Vercel sends
 `Authorization: Bearer $CRON_SECRET`; the route rejects any other caller.
 
-`apps/web/vercel.json` ships `"crons": []`. Hobby rejected every deploy while a
-cron was registered — first because `0 */6 * * *` runs more than once per day,
-then because a leftover 6-hour job on the production project still failed the
-same plan check. Call the route with `CRON_SECRET` (or an external scheduler)
-until the project is on Pro, then restore:
+`apps/web/vercel.json` does not register any crons. Hobby rejected every deploy
+while a cron was registered — first because `0 */6 * * *` runs more than once
+per day, then because a leftover 6-hour job on the production project still
+failed the same plan check. If deploys still fail after this file omits `crons`,
+delete the leftover job in the Vercel project **Settings → Cron Jobs**.
+
+Call the route with `CRON_SECRET` (or an external scheduler) until the project
+is on Pro, then restore:
 
 ```
 {

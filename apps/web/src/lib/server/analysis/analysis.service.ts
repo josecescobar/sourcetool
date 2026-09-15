@@ -1,6 +1,7 @@
 import { ProfitCalculatorEngine } from './engines/profit-calculator.engine';
 import { prisma } from '@sourcetool/db';
 import type { CalculateInput, BreakevenInput, DecisionSnapshot } from '@sourcetool/shared';
+import { ApiError } from '../http';
 
 /** Extra decision-time context to freeze alongside the forecast. */
 export type AnalysisContext = DecisionSnapshot;
@@ -72,6 +73,50 @@ export class AnalysisService {
       data: analyses,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  /**
+   * Write a deal-score result onto the analysis that produced the numbers.
+   * Without this, dashboard/extension verdicts live only in component state
+   * and byScoreBand never fills in.
+   */
+  async recordVerdict(
+    analysisId: string,
+    teamId: string,
+    verdict: {
+      score: number;
+      verdict: DecisionSnapshot['aiVerdict'];
+      reasoning?: string;
+      confidence?: number;
+    },
+    extras: AnalysisContext = {},
+  ) {
+    const existing = await prisma.productAnalysis.findFirst({
+      where: { id: analysisId, teamId },
+    });
+    if (!existing) throw new ApiError(404, 'Analysis not found');
+
+    const previous = (existing.snapshot ?? {}) as DecisionSnapshot;
+    const snapshot = buildSnapshot(
+      { category: existing.snapshot ? previous.category : undefined } as CalculateInput,
+      {
+        ...previous,
+        ...extras,
+        aiScore: verdict.score,
+        aiVerdict: verdict.verdict,
+        aiConfidence: verdict.confidence,
+      },
+    );
+
+    return prisma.productAnalysis.update({
+      where: { id: analysisId },
+      data: {
+        aiScore: verdict.score,
+        aiVerdict: verdict.verdict,
+        aiReasoning: verdict.reasoning,
+        snapshot: snapshot as object,
+      },
+    });
   }
 }
 

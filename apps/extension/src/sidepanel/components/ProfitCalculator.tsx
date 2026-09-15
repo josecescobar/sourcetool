@@ -9,9 +9,10 @@ interface Props {
     id?: string;
     listings?: Array<{ currentPrice?: number }>;
   };
+  onAnalyzed?: (analysisId?: string) => void;
 }
 
-export function ProfitCalculator({ product }: Props) {
+export function ProfitCalculator({ product, onAnalyzed }: Props) {
   const [buyPrice, setBuyPrice] = useState('');
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -31,9 +32,14 @@ export function ProfitCalculator({ product }: Props) {
           buyPrice: parseFloat(buyPrice),
           sellPrice,
           category: product.category,
+          snapshot: {
+            category: product.category,
+            bsr: (product as { bsr?: number }).bsr,
+          },
         },
       });
       setResult(response?.data);
+      onAnalyzed?.(response?.data?.analysisId);
     } catch (err) {
       console.error('Calculate error:', err);
     }

@@ -38,6 +38,7 @@ export function App() {
   const [product, setProduct] = useState<ProductData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('calculator');
   const [showBuyList, setShowBuyList] = useState(false);
+  const [analysisId, setAnalysisId] = useState<string | undefined>();
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'CHECK_AUTH' }).then((res) => {
@@ -117,11 +118,13 @@ export function App() {
         ))}
       </div>
 
-      {activeTab === 'calculator' && <ProfitCalculator product={product} />}
+      {activeTab === 'calculator' && (
+        <ProfitCalculator product={product} onAnalyzed={(id) => setAnalysisId(id)} />
+      )}
       {activeTab === 'history' && <HistoryTab product={product} />}
       {activeTab === 'alerts' && <AlertsTab product={product} />}
 
-      <AIVerdict product={product} />
+      <AIVerdict product={product} analysisId={analysisId} />
     </div>
   );
 }
