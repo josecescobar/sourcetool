@@ -1,9 +1,16 @@
 import { prisma } from '@sourcetool/db';
 
+function csvCell(value: unknown): string {
+  const raw = value == null ? '' : String(value);
+  // Neutralise spreadsheet formula injection before quoting.
+  const guarded = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return `"${guarded.replace(/"/g, '""')}"`;
+}
+
 export class ExportService {
-  async exportCsv(analysisIds: string[]): Promise<any> {
+  async exportCsv(analysisIds: string[], teamId: string): Promise<any> {
     const analyses = await prisma.productAnalysis.findMany({
-      where: { id: { in: analysisIds } },
+      where: { id: { in: analysisIds }, teamId },
       include: { product: true },
     });
 
@@ -13,7 +20,10 @@ export class ExportService {
       a.totalFees, a.profit, a.roi, a.margin, a.marketplace,
     ]);
 
-    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csv = [
+      headers.map(csvCell).join(','),
+      ...rows.map((r) => r.map(csvCell).join(',')),
+    ].join('\n');
     return { csv, filename: `sourcetool-export-${Date.now()}.csv` };
   }
 

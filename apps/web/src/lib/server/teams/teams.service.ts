@@ -137,6 +137,14 @@ export class TeamsService {
     });
     if (!invite) throw new ApiError(400, 'Invalid or expired invite');
 
+    // An invite is addressed to one email. Without this check, anyone holding
+    // the link could join the team as whatever role it was issued for.
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiError(400, 'Invalid or expired invite');
+    if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw new ApiError(403, 'This invite was issued to a different email address');
+    }
+
     // Check user isn't already a member
     const existing = await prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId: invite.teamId, userId } },

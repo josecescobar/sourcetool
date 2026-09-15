@@ -57,13 +57,20 @@ export class BulkScanService {
     return scan;
   }
 
-  async getById(id: string): Promise<any> {
-    const scan = await prisma.bulkScan.findUnique({ where: { id } });
+  /** Every read/write path goes through here so a scan id alone is never enough. */
+  private async requireOwnedScan(id: string, teamId: string) {
+    const scan = await prisma.bulkScan.findFirst({ where: { id, teamId } });
     if (!scan) throw new ApiError(404, 'Bulk scan not found');
     return scan;
   }
 
-  async getResults(id: string, sort?: string, filter?: string): Promise<any> {
+  async getById(id: string, teamId: string): Promise<any> {
+    return this.requireOwnedScan(id, teamId);
+  }
+
+  async getResults(id: string, teamId: string, sort?: string, filter?: string): Promise<any> {
+    await this.requireOwnedScan(id, teamId);
+
     const where: any = { bulkScanId: id };
 
     if (filter === 'success') where.status = 'SUCCESS';
@@ -86,8 +93,7 @@ export class BulkScanService {
   }
 
   async retryFailed(scanId: string, teamId: string, userId: string): Promise<any> {
-    const scan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
-    if (!scan) throw new ApiError(404, 'Bulk scan not found');
+    const scan = await this.requireOwnedScan(scanId, teamId);
     if (scan.status !== 'COMPLETED') {
       throw new ApiError(400, 'Can only retry a completed scan');
     }
@@ -116,7 +122,8 @@ export class BulkScanService {
     return prisma.bulkScan.findUnique({ where: { id: scanId } });
   }
 
-  async delete(id: string): Promise<any> {
+  async delete(id: string, teamId: string): Promise<any> {
+    await this.requireOwnedScan(id, teamId);
     return prisma.bulkScan.delete({ where: { id } });
   }
 
@@ -129,16 +136,15 @@ export class BulkScanService {
     teamId: string,
     userId: string,
   ): Promise<{ processed: number; remaining: number; done: boolean }> {
-    const existing = await prisma.bulkScan.findUnique({ where: { id: scanId } });
+    // Scoped by teamId: the cron hop carries teamId in its body, so a forged or
+    // stale body must not be able to drive another team's scan.
+    const existing = await prisma.bulkScan.findFirst({ where: { id: scanId, teamId } });
     if (!existing) return { processed: 0, remaining: 0, done: true };
 
-    await prisma.bulkScan.update({
+    const scan = await prisma.bulkScan.update({
       where: { id: scanId },
       data: { status: 'PROCESSING', startedAt: existing.startedAt ?? new Date() },
     });
-
-    const scan = await prisma.bulkScan.findUnique({ where: { id: scanId } });
-    if (!scan) return { processed: 0, remaining: 0, done: true };
 
     const rows = await prisma.bulkScanRow.findMany({
       where: { bulkScanId: scanId, status: 'PENDING' },
