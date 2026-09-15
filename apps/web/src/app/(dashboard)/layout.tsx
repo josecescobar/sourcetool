@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search, ShoppingBag, Columns3 } from 'lucide-react';
+import { Package, BarChart3, Upload, List, ShieldAlert, Users, Settings, LogOut, Search, ShoppingBag, Columns3, Crosshair } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -17,6 +17,7 @@ const allNavItems = [
   { href: '/buy-list', label: 'Buy List', icon: List },
   { href: '/sourced-products', label: 'Sourced', icon: ShoppingBag },
   { href: '/performance', label: 'Performance', icon: BarChart3 },
+  { href: '/calibration', label: 'Calibration', icon: Crosshair },
   { href: '/alerts', label: 'Alerts', icon: ShieldAlert },
   { href: '/team', label: 'Team', icon: Users },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -48,6 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = allNavItems.filter(({ href }) => {
     if (href === '/performance' && !canAccessAnalytics) return false;
+    if (href === '/calibration' && !canAccessAnalytics) return false;
     if (href === '/sourced-products' && !canAccessSourced) return false;
     return true;
   });

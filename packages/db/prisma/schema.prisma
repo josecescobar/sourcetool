@@ -276,13 +276,18 @@ model ProductAnalysis {
   aiScore         Int?
   aiVerdict       DealVerdict?
   aiReasoning     String?
+  // Decision-time feature snapshot (BSR, offer counts, category, risk flags).
+  // Frozen here because live product data drifts, and calibration has to
+  // compare an outcome against what was actually known when the call was made.
+  snapshot        Json?
   createdAt       DateTime        @default(now())
 
-  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  buyListItems BuyListItem[]
-  bulkScanRows BulkScanRow[]
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buyListItems    BuyListItem[]
+  bulkScanRows    BulkScanRow[]
+  sourcedProducts SourcedProduct[]
 
   @@index([teamId, createdAt(sort: Desc)])
   @@map("product_analyses")
@@ -383,6 +388,9 @@ model SourcedProduct {
   id            String    @id @default(cuid())
   teamId        String
   productId     String
+  // The analysis that justified this purchase. This edge is what closes the
+  // loop: without it a realized outcome cannot be scored against its forecast.
+  analysisId    String?
   marketplace   Marketplace
   purchaseDate  DateTime
   purchasePrice Float
@@ -396,10 +404,13 @@ model SourcedProduct {
   actualRoi     Float?
   notes         String?
 
-  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  team     Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  analysis ProductAnalysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
 
   @@index([teamId, purchaseDate(sort: Desc)])
+  // Calibration reads resolved outcomes: sold rows for one team.
+  @@index([teamId, soldDate])
   @@map("sourced_products")
 }
 

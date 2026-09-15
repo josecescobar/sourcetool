@@ -215,6 +215,18 @@ export class BulkScanService {
           },
           userId,
           teamId,
+          // Freeze what the row was judged on so the outcome can be scored
+          // against it once the unit sells.
+          {
+            category: product.category ?? undefined,
+            brand: product.brand ?? undefined,
+            bsr: listing?.bsr ?? undefined,
+            offerCount: listing?.offerCount ?? undefined,
+            fbaOfferCount: listing?.fbaOfferCount ?? undefined,
+            isAmazonSelling: listing?.isAmazonSelling ?? undefined,
+            rating: listing?.rating ?? undefined,
+            reviewCount: listing?.reviewCount ?? undefined,
+          },
         );
 
         // Update row as success
