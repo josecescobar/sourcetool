@@ -47,8 +47,8 @@ function CompareContent() {
     if (initialAsins.length >= 2) {
       compare(initialAsins.slice(0, 3));
     }
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only run on mount — compare() is recreated each render, so it is
+    // intentionally omitted from the dependency list.
   }, []);
 
   const updateInput = (index: number, value: string) => {

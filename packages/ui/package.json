@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
+    "lint": "eslint --ext .ts,.tsx --no-error-on-unmatched-pattern src/",
     "clean": "rm -rf dist"
   },
   "dependencies": {
