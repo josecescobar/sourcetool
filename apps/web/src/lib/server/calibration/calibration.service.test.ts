@@ -135,6 +135,17 @@ describe('CalibrationService.getResolvedOutcomes', () => {
   });
 });
 
+describe('CalibrationService.getSummary', () => {
+  it('builds a summary from the team\'s resolved outcomes', async () => {
+    sourcedProduct.findMany.mockResolvedValue([soldRow(), soldRow({ id: 'sp-2' })]);
+
+    const summary = await new CalibrationService().getSummary(TEAM);
+
+    expect(summary.sampleSize).toBe(2);
+    expect(summary.overall).not.toBeNull();
+  });
+});
+
 describe('CalibrationService.getReport', () => {
   it('counts sold units that cannot be scored so the gap is explainable', async () => {
     sourcedProduct.findMany.mockResolvedValue([soldRow()]);

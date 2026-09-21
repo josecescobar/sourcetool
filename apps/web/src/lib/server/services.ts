@@ -36,14 +36,20 @@ export const productDataChainService = new ProductDataChainService(
 export const emailService = new EmailService();
 export const aiService = new AiService();
 export const profitCalculatorEngine = new ProfitCalculatorEngine();
-export const analysisService = new AnalysisService(profitCalculatorEngine);
+export const calibrationService = new CalibrationService();
+export const analysisService = new AnalysisService(profitCalculatorEngine, calibrationService);
 export const productWatchesService = new ProductWatchesService();
 export const productsService = new ProductsService(
   productDataChainService,
   productWatchesService,
   aiService,
 );
-export const bulkScanService = new BulkScanService(productsService, analysisService, aiService);
+export const bulkScanService = new BulkScanService(
+  productsService,
+  analysisService,
+  aiService,
+  calibrationService,
+);
 export const watchCheckerService = new WatchCheckerService(
   productDataChainService,
   productWatchesService,
@@ -56,6 +62,5 @@ export const alertsService = new AlertsService();
 export const analyticsService = new AnalyticsService();
 export const buyListsService = new BuyListsService();
 export const exportService = new ExportService();
-export const calibrationService = new CalibrationService();
 export const sourcedProductsService = new SourcedProductsService(calibrationService);
 export const savedSearchesService = new SavedSearchesService();

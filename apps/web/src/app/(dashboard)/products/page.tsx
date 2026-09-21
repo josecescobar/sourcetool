@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Search, List, Bookmark, X, Clock, Columns3 } from 'lucide-react';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
+import { CalibrationCallout } from '@/components/calibration-callout';
 import { useSavedSearches } from '@/hooks/useSavedSearches';
 
 export default function ProductsPage() {
@@ -311,6 +312,7 @@ export default function ProductsPage() {
                   <div className="text-sm font-medium">${analysis.breakeven?.toFixed(2)}</div>
                 </div>
               </div>
+              <CalibrationCallout forecast={analysis.calibrated} />
               <div className="mt-4">
                 {!verdict ? (
                   <button

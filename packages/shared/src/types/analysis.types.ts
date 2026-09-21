@@ -1,4 +1,5 @@
 import type { Marketplace, FulfillmentType } from './product.types';
+import type { CalibratedForecast } from './calibration.types';
 
 export interface CalculateInput {
   productId?: string;
@@ -42,6 +43,12 @@ export interface ProfitResult {
   roi: number; // percentage
   margin: number; // percentage
   breakeven: number; // minimum sell price to break even
+}
+
+/** What calculate returns: the raw forecast plus an optional track-record adjustment. */
+export interface CalculateResult extends ProfitResult {
+  analysisId: string;
+  calibrated?: CalibratedForecast;
 }
 
 export interface ScenarioResult {

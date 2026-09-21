@@ -25,7 +25,10 @@ export function useBulkScan() {
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<string>('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -34,12 +37,23 @@ export function useBulkScan() {
     }
   }, []);
 
-  const fetchResults = useCallback(async (scanId: string) => {
-    const data = await apiClient.get(`/bulk-scans/${scanId}/results`);
+  const fetchResults = useCallback(async (scanId: string, nextSort?: string) => {
+    const applied = nextSort ?? sortRef.current;
+    const qs = applied ? `?sort=${encodeURIComponent(applied)}` : '';
+    const data = await apiClient.get(`/bulk-scans/${scanId}/results${qs}`);
     if (data.success) {
       setResults(data.data);
     }
   }, []);
+
+  const changeSort = useCallback(
+    async (nextSort: string) => {
+      setSort(nextSort);
+      sortRef.current = nextSort;
+      if (scan?.id) await fetchResults(scan.id, nextSort);
+    },
+    [scan, fetchResults],
+  );
 
   const pollStatus = useCallback(async (scanId: string) => {
     const data = await apiClient.get(`/bulk-scans/${scanId}`);
@@ -119,7 +133,8 @@ export function useBulkScan() {
     setLoading(false);
     setRetrying(false);
     setError(null);
+    setSort('');
   }, [stopPolling]);
 
-  return { scan, results, loading, retrying, error, startScan, retryFailed, reset };
+  return { scan, results, loading, retrying, error, sort, changeSort, startScan, retryFailed, reset };
 }

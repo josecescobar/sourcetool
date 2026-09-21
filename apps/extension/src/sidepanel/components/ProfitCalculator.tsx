@@ -92,6 +92,7 @@ export function ProfitCalculator({ product, onAnalyzed }: Props) {
       </button>
 
       {result && (
+        <>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {metrics.map(({ label, value, color }) => (
             <div key={label} className="rounded-md bg-muted p-2">
@@ -100,6 +101,29 @@ export function ProfitCalculator({ product, onAnalyzed }: Props) {
             </div>
           ))}
         </div>
+        {result.calibrated?.applied && (
+          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-amber-800">
+              Calibrated to your track record
+            </div>
+            <div className="text-sm mt-0.5">
+              Expected{' '}
+              <span className="font-semibold text-amber-800">
+                {result.calibrated.calibratedRoi.toFixed(1)}% ROI
+              </span>
+              {' / '}
+              <span className="font-semibold text-amber-800">
+                ${result.calibrated.calibratedProfit.toFixed(2)}
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {Math.round(result.calibrated.realizationRate * 100)}% of forecast · {result.calibrated.basis}
+              {' · '}
+              {result.calibrated.sampleSize} sold
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

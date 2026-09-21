@@ -18,7 +18,7 @@ export default function BulkScanPage() {
   const [fulfillmentType, setFulfillmentType] = useState('FBA');
   const [defaultBuyPrice, setDefaultBuyPrice] = useState('');
 
-  const { scan, results, loading, retrying, error, startScan, retryFailed, reset } = useBulkScan();
+  const { scan, results, loading, retrying, error, sort, changeSort, startScan, retryFailed, reset } = useBulkScan();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [buyListOpen, setBuyListOpen] = useState(false);
   const [buyListItems, setBuyListItems] = useState<Array<{ productId: string; analysisId?: string }>>([]);
@@ -366,6 +366,19 @@ export default function BulkScanPage() {
           {/* Results table */}
           {results && results.length > 0 && (
             <div className="rounded-xl border bg-white shadow-sm overflow-x-auto">
+              <div className="flex items-center justify-end gap-2 px-4 py-3 border-b bg-gray-50/80">
+                <label className="text-xs text-muted-foreground">Sort</label>
+                <select
+                  value={sort}
+                  onChange={(e) => changeSort(e.target.value)}
+                  className="rounded-md border px-2 py-1 text-sm bg-white"
+                >
+                  <option value="">Row order</option>
+                  <option value="profit">Profit</option>
+                  <option value="roi">Forecast ROI</option>
+                  <option value="calibrated">Calibrated ROI</option>
+                </select>
+              </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
@@ -449,16 +462,30 @@ export default function BulkScanPage() {
                         </td>
                         <td className="px-4 py-3 text-right font-medium">
                           {row.analysis?.profit != null ? (
-                            <span className={row.analysis.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              ${row.analysis.profit.toFixed(2)}
-                            </span>
+                            <div>
+                              <span className={row.analysis.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                ${row.analysis.profit.toFixed(2)}
+                              </span>
+                              {row.calibrated?.applied && (
+                                <div className="text-[11px] font-normal text-amber-700" title={row.calibrated.basis}>
+                                  adj ${row.calibrated.calibratedProfit.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
                           ) : '-'}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">
                           {row.analysis?.roi != null ? (
-                            <span className={row.analysis.roi >= 30 ? 'text-green-600' : row.analysis.roi >= 0 ? 'text-yellow-600' : 'text-red-600'}>
-                              {row.analysis.roi.toFixed(1)}%
-                            </span>
+                            <div>
+                              <span className={row.analysis.roi >= 30 ? 'text-green-600' : row.analysis.roi >= 0 ? 'text-yellow-600' : 'text-red-600'}>
+                                {row.analysis.roi.toFixed(1)}%
+                              </span>
+                              {row.calibrated?.applied && (
+                                <div className="text-[11px] font-normal text-amber-700" title={row.calibrated.basis}>
+                                  adj {row.calibrated.calibratedRoi.toFixed(1)}%
+                                </div>
+                              )}
+                            </div>
                           ) : '-'}
                         </td>
                         <td className="px-4 py-3 text-right">

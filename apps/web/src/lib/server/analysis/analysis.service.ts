@@ -1,20 +1,29 @@
 import { ProfitCalculatorEngine } from './engines/profit-calculator.engine';
 import { prisma } from '@sourcetool/db';
-import type { CalculateInput, BreakevenInput, DecisionSnapshot } from '@sourcetool/shared';
+import type {
+  CalculateInput,
+  CalculateResult,
+  BreakevenInput,
+  DecisionSnapshot,
+} from '@sourcetool/shared';
 import { ApiError } from '../http';
+import type { CalibrationService } from '../calibration/calibration.service';
 
 /** Extra decision-time context to freeze alongside the forecast. */
 export type AnalysisContext = DecisionSnapshot;
 
 export class AnalysisService {
-  constructor(private engine: ProfitCalculatorEngine) {}
+  constructor(
+    private engine: ProfitCalculatorEngine,
+    private calibrationService?: CalibrationService,
+  ) {}
 
   async calculate(
     input: CalculateInput,
     userId: string,
     teamId: string,
     context: AnalysisContext = {},
-  ): Promise<any> {
+  ): Promise<CalculateResult> {
     const result = this.engine.calculate(input);
 
     const snapshot = buildSnapshot(input, context);
@@ -45,7 +54,23 @@ export class AnalysisService {
       },
     });
 
-    return { ...result, analysisId: analysis.id };
+    const payload: CalculateResult = { ...result, analysisId: analysis.id };
+
+    // A buy decision must still return numbers if the track-record query fails.
+    if (this.calibrationService) {
+      try {
+        payload.calibrated = await this.calibrationService.calibrateForecast(teamId, {
+          predictedRoi: result.roi,
+          predictedProfit: result.profit,
+          category: snapshot.category,
+          aiScore: context.aiScore,
+        });
+      } catch {
+        // leave calibrated unset
+      }
+    }
+
+    return payload;
   }
 
   calculateBreakeven(input: BreakevenInput) {

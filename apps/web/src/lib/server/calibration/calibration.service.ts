@@ -71,6 +71,11 @@ export class CalibrationService {
     return { ...buildCalibrationSummary(outcomes), unlinkedSoldCount };
   }
 
+  /** One summary for many forecasts — bulk scan must not N+1 the outcomes query. */
+  async getSummary(teamId: string): Promise<CalibrationSummary> {
+    return buildCalibrationSummary(await this.getResolvedOutcomes(teamId));
+  }
+
   async calibrateForecast(
     teamId: string,
     forecast: {
@@ -80,8 +85,7 @@ export class CalibrationService {
       aiScore?: number;
     },
   ): Promise<CalibratedForecast> {
-    const summary = buildCalibrationSummary(await this.getResolvedOutcomes(teamId));
-    return applyCalibration(forecast, summary);
+    return applyCalibration(forecast, await this.getSummary(teamId));
   }
 
   /** Prompt context for the deal scorer, or undefined when history is too thin. */
@@ -89,8 +93,7 @@ export class CalibrationService {
     teamId: string,
     context: { category?: string } = {},
   ): Promise<string | undefined> {
-    const summary = buildCalibrationSummary(await this.getResolvedOutcomes(teamId));
-    return buildCalibrationBrief(summary, context);
+    return buildCalibrationBrief(await this.getSummary(teamId), context);
   }
 
   /**
