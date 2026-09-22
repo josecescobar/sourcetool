@@ -127,7 +127,12 @@ export default function ProductsPage() {
           buyBoxPrice: listing?.buyBoxPrice,
         },
       });
-      if (data.success) setVerdict(data.data);
+      if (data.success) {
+        setVerdict(data.data);
+        if (data.data.calibrated) {
+          setAnalysis((prev: any) => (prev ? { ...prev, calibrated: data.data.calibrated } : prev));
+        }
+      }
     } catch {
       setError('AI scoring failed');
     }
@@ -197,7 +202,7 @@ export default function ProductsPage() {
         <AddToBuyListDialog
           open={buyListOpen}
           onOpenChange={setBuyListOpen}
-          items={[{ productId: product.id, analysisId: analysis?.id }]}
+          items={[{ productId: product.id, analysisId: analysis?.analysisId }]}
           onSuccess={() => {
             setBuyListMessage('Added to buy list');
             setTimeout(() => setBuyListMessage(''), 3000);

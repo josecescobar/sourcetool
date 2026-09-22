@@ -60,6 +60,60 @@ beforeEach(() => {
   productAnalysis.create.mockResolvedValue({ id: 'analysis-1' });
 });
 
+describe('AnalysisService.recordVerdict', () => {
+  it('re-applies calibration with the new score so the score band can attach', async () => {
+    productAnalysis.findFirst.mockResolvedValue({
+      id: 'analysis-1',
+      roi: 80,
+      profit: 16,
+      snapshot: { category: 'Toys & Games' },
+    });
+    productAnalysis.update.mockResolvedValue({ id: 'analysis-1', aiScore: 92 });
+
+    const calibrateForecast = vi.fn().mockResolvedValue({
+      applied: true,
+      basis: 'Scored 80-100 (Strong Buy)',
+      calibratedRoi: 24,
+      sampleSize: 8,
+    });
+
+    const result = await makeService({ calibrateForecast }).recordVerdict(
+      'analysis-1',
+      TEAM,
+      { score: 92, verdict: 'STRONG_BUY' },
+      { category: 'Toys & Games' },
+    );
+
+    expect(result.calibrated).toMatchObject({
+      applied: true,
+      basis: 'Scored 80-100 (Strong Buy)',
+    });
+    expect(calibrateForecast).toHaveBeenCalledWith(TEAM, {
+      predictedRoi: 80,
+      predictedProfit: 16,
+      category: 'Toys & Games',
+      aiScore: 92,
+    });
+  });
+
+  it('still persists the verdict when calibration throws', async () => {
+    productAnalysis.findFirst.mockResolvedValue({
+      id: 'analysis-1',
+      roi: 40,
+      profit: 8,
+      snapshot: {},
+    });
+    productAnalysis.update.mockResolvedValue({ id: 'analysis-1' });
+
+    const result = await makeService({
+      calibrateForecast: vi.fn().mockRejectedValue(new Error('db timeout')),
+    }).recordVerdict('analysis-1', TEAM, { score: 70, verdict: 'BUY' });
+
+    expect(productAnalysis.update).toHaveBeenCalled();
+    expect(result.calibrated).toBeUndefined();
+  });
+});
+
 describe('AnalysisService.calculate', () => {
   it('attaches a calibrated forecast when the team has a track record', async () => {
     const calibrateForecast = vi.fn().mockResolvedValue({

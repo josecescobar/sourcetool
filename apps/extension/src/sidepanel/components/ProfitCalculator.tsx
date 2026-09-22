@@ -9,10 +9,12 @@ interface Props {
     id?: string;
     listings?: Array<{ currentPrice?: number }>;
   };
-  onAnalyzed?: (analysisId?: string) => void;
+  onAnalyzed?: (analysisId?: string, result?: any) => void;
+  /** Updated after an AI verdict so the score band can replace the first pass. */
+  calibratedOverride?: any;
 }
 
-export function ProfitCalculator({ product, onAnalyzed }: Props) {
+export function ProfitCalculator({ product, onAnalyzed, calibratedOverride }: Props) {
   const [buyPrice, setBuyPrice] = useState('');
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,7 @@ export function ProfitCalculator({ product, onAnalyzed }: Props) {
         },
       });
       setResult(response?.data);
-      onAnalyzed?.(response?.data?.analysisId);
+      onAnalyzed?.(response?.data?.analysisId, response?.data);
     } catch (err) {
       console.error('Calculate error:', err);
     }
@@ -101,7 +103,7 @@ export function ProfitCalculator({ product, onAnalyzed }: Props) {
             </div>
           ))}
         </div>
-        {result.calibrated?.applied && (
+        {(calibratedOverride ?? result.calibrated)?.applied && (
           <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
             <div className="text-[11px] font-medium uppercase tracking-wide text-amber-800">
               Calibrated to your track record
@@ -109,17 +111,17 @@ export function ProfitCalculator({ product, onAnalyzed }: Props) {
             <div className="text-sm mt-0.5">
               Expected{' '}
               <span className="font-semibold text-amber-800">
-                {result.calibrated.calibratedRoi.toFixed(1)}% ROI
+                {(calibratedOverride ?? result.calibrated).calibratedRoi.toFixed(1)}% ROI
               </span>
               {' / '}
               <span className="font-semibold text-amber-800">
-                ${result.calibrated.calibratedProfit.toFixed(2)}
+                ${(calibratedOverride ?? result.calibrated).calibratedProfit.toFixed(2)}
               </span>
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              {Math.round(result.calibrated.realizationRate * 100)}% of forecast · {result.calibrated.basis}
+              {Math.round((calibratedOverride ?? result.calibrated).realizationRate * 100)}% of forecast · {(calibratedOverride ?? result.calibrated).basis}
               {' · '}
-              {result.calibrated.sampleSize} sold
+              {(calibratedOverride ?? result.calibrated).sampleSize} sold
             </div>
           </div>
         )}

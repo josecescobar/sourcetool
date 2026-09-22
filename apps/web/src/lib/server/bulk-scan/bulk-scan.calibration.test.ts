@@ -1,52 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildCalibrationSummary } from '../calibration/calibration.engine';
-import type { ResolvedOutcome } from '@sourcetool/shared';
 
-const bulkScan = {
-  findFirst: vi.fn(),
-};
-const bulkScanRow = {
-  findMany: vi.fn(),
-};
+const bulkScan = { findFirst: vi.fn() };
+const bulkScanRow = { findMany: vi.fn() };
+const sourcedProduct = { findMany: vi.fn(), count: vi.fn() };
 
 vi.mock('@sourcetool/db', () => ({
-  prisma: { bulkScan, bulkScanRow },
+  prisma: { bulkScan, bulkScanRow, sourcedProduct },
 }));
 
 const { BulkScanService } = await import('./bulk-scan.service');
+const { CalibrationService } = await import('../calibration/calibration.service');
 
 const TEAM = 'team-1';
 const SCAN = 'scan-1';
 
-function outcome(overrides: Partial<ResolvedOutcome> = {}): ResolvedOutcome {
+function sold(overrides: Record<string, unknown> = {}) {
   return {
-    predictedProfit: 10,
-    predictedRoi: 50,
-    realizedProfit: 5,
-    realizedRoi: 25,
-    category: 'Toys & Games',
+    id: 'sp-1',
+    teamId: TEAM,
+    quantity: 1,
+    purchaseDate: new Date('2026-01-01'),
+    soldDate: new Date('2026-01-31'),
+    actualProfit: 5,
+    actualRoi: 25,
+    analysis: {
+      profit: 10,
+      roi: 50,
+      aiScore: 85,
+      aiVerdict: 'STRONG_BUY',
+      snapshot: { category: 'Toys & Games' },
+    },
+    product: { category: 'Toys & Games' },
     ...overrides,
   };
 }
 
-function many(count: number, overrides: Partial<ResolvedOutcome> = {}) {
-  return Array.from({ length: count }, () => outcome(overrides));
+function manySold(count: number, overrides: Record<string, unknown> = {}) {
+  return Array.from({ length: count }, (_, i) => sold({ id: `sp-${i}`, ...overrides }));
 }
 
-function makeService(calibration?: { getSummary: ReturnType<typeof vi.fn> }) {
-  return new BulkScanService({} as never, {} as never, {} as never, calibration as never);
+function makeService() {
+  return new BulkScanService({} as never, {} as never, {} as never, new CalibrationService());
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   bulkScan.findFirst.mockResolvedValue({ id: SCAN, teamId: TEAM });
+  sourcedProduct.count.mockResolvedValue(0);
 });
 
 describe('BulkScanService.getResults calibration', () => {
   it('attaches a forecast from one team summary, not a per-row query', async () => {
-    const summary = buildCalibrationSummary(many(10));
-    const getSummary = vi.fn().mockResolvedValue(summary);
-
+    sourcedProduct.findMany.mockResolvedValue(manySold(10));
     bulkScanRow.findMany.mockResolvedValue([
       {
         id: 'row-1',
@@ -68,10 +73,9 @@ describe('BulkScanService.getResults calibration', () => {
       },
     ]);
 
-    const rows = await makeService({ getSummary }).getResults(SCAN, TEAM);
+    const rows = await makeService().getResults(SCAN, TEAM);
 
-    expect(getSummary).toHaveBeenCalledTimes(1);
-    expect(getSummary).toHaveBeenCalledWith(TEAM);
+    expect(sourcedProduct.findMany).toHaveBeenCalledTimes(1);
     expect(rows[0].calibrated.applied).toBe(true);
     expect(rows[0].calibrated.calibratedRoi).toBeCloseTo(30, 0);
     expect(rows[1].calibrated.applied).toBe(true);
@@ -79,11 +83,29 @@ describe('BulkScanService.getResults calibration', () => {
   });
 
   it('sorts by calibrated ROI when asked', async () => {
-    const summary = buildCalibrationSummary([
-      ...many(8, { category: 'Toys & Games', predictedRoi: 50, realizedRoi: 10 }),
-      ...many(8, { category: 'Grocery', predictedRoi: 50, realizedRoi: 50 }),
+    sourcedProduct.findMany.mockResolvedValue([
+      ...manySold(8, {
+        analysis: {
+          profit: 10,
+          roi: 50,
+          snapshot: { category: 'Toys & Games' },
+        },
+        product: { category: 'Toys & Games' },
+        actualRoi: 10,
+        actualProfit: 2,
+      }),
+      ...manySold(8, {
+        id: 'g',
+        analysis: {
+          profit: 10,
+          roi: 50,
+          snapshot: { category: 'Grocery' },
+        },
+        product: { category: 'Grocery' },
+        actualRoi: 50,
+        actualProfit: 10,
+      }),
     ]);
-    const getSummary = vi.fn().mockResolvedValue(summary);
 
     bulkScanRow.findMany.mockResolvedValue([
       {
@@ -100,7 +122,7 @@ describe('BulkScanService.getResults calibration', () => {
       },
     ]);
 
-    const rows = await makeService({ getSummary }).getResults(SCAN, TEAM, 'calibrated');
+    const rows = await makeService().getResults(SCAN, TEAM, 'calibrated');
 
     // Grocery realizes ~100% of forecast (40), Toys ~20% (16). Grocery first.
     expect(rows.map((r: { id: string }) => r.id)).toEqual(['grocery', 'toys']);
@@ -108,12 +130,12 @@ describe('BulkScanService.getResults calibration', () => {
   });
 
   it('still returns rows when the summary query fails', async () => {
-    const getSummary = vi.fn().mockRejectedValue(new Error('db timeout'));
+    sourcedProduct.findMany.mockRejectedValue(new Error('db timeout'));
     bulkScanRow.findMany.mockResolvedValue([
       { id: 'row-1', analysis: { roi: 20, profit: 4, snapshot: {} }, product: {} },
     ]);
 
-    const rows = await makeService({ getSummary }).getResults(SCAN, TEAM);
+    const rows = await makeService().getResults(SCAN, TEAM);
 
     expect(rows).toHaveLength(1);
     expect(rows[0].calibrated).toBeUndefined();

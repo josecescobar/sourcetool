@@ -351,16 +351,30 @@ export default function BuyListPage() {
                             </td>
                             <td className="px-4 py-3 text-right font-medium">
                               {analysis?.profit != null ? (
-                                <span className={analysis.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  ${analysis.profit.toFixed(2)}
-                                </span>
+                                <div>
+                                  <span className={analysis.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                    ${analysis.profit.toFixed(2)}
+                                  </span>
+                                  {item.calibrated?.applied && (
+                                    <div className="text-[11px] font-normal text-amber-700" title={item.calibrated.basis}>
+                                      adj ${item.calibrated.calibratedProfit.toFixed(2)}
+                                    </div>
+                                  )}
+                                </div>
                               ) : '-'}
                             </td>
                             <td className="px-4 py-3 text-right font-medium">
                               {analysis?.roi != null ? (
-                                <span className={analysis.roi >= 30 ? 'text-green-600' : analysis.roi >= 0 ? 'text-yellow-600' : 'text-red-600'}>
-                                  {analysis.roi.toFixed(1)}%
-                                </span>
+                                <div>
+                                  <span className={analysis.roi >= 30 ? 'text-green-600' : analysis.roi >= 0 ? 'text-yellow-600' : 'text-red-600'}>
+                                    {analysis.roi.toFixed(1)}%
+                                  </span>
+                                  {item.calibrated?.applied && (
+                                    <div className="text-[11px] font-normal text-amber-700" title={item.calibrated.basis}>
+                                      adj {item.calibrated.calibratedRoi.toFixed(1)}%
+                                    </div>
+                                  )}
+                                </div>
                               ) : '-'}
                             </td>
                             <td className="px-4 py-3 text-xs text-muted-foreground max-w-[150px] truncate">

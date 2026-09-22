@@ -133,7 +133,7 @@ export class AnalysisService {
       },
     );
 
-    return prisma.productAnalysis.update({
+    const updated = await prisma.productAnalysis.update({
       where: { id: analysisId },
       data: {
         aiScore: verdict.score,
@@ -142,6 +142,23 @@ export class AnalysisService {
         snapshot: snapshot as object,
       },
     });
+
+    // Re-apply now that we have a score — byScoreBand can finally win.
+    let calibrated;
+    if (this.calibrationService) {
+      try {
+        calibrated = await this.calibrationService.calibrateForecast(teamId, {
+          predictedRoi: existing.roi,
+          predictedProfit: existing.profit,
+          category: snapshot.category,
+          aiScore: verdict.score,
+        });
+      } catch {
+        // verdict persist already succeeded
+      }
+    }
+
+    return { analysis: updated, calibrated };
   }
 }
 

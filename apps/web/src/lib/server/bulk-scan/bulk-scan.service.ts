@@ -3,8 +3,7 @@ import { ProductsService } from '../products/products.service';
 import { AnalysisService } from '../analysis/analysis.service';
 import { AiService } from '../ai/ai.service';
 import type { CalibrationService } from '../calibration/calibration.service';
-import { applyCalibration } from '../calibration/calibration.engine';
-import type { DecisionSnapshot, Marketplace, FulfillmentType } from '@sourcetool/shared';
+import type { Marketplace, FulfillmentType } from '@sourcetool/shared';
 import { ApiError } from '../http';
 import { createLogger } from '../logger';
 import { LOOKUP_BATCH_SIZE, chainNewInvocation } from '../self-invoke';
@@ -92,45 +91,15 @@ export class BulkScanService {
       orderBy,
     });
 
-    const decorated = await this.attachCalibrated(teamId, rows);
+    const decorated = this.calibrationService
+      ? await this.calibrationService.decorateAnalyses(teamId, rows)
+      : rows;
 
     if (sort === 'calibrated') {
       decorated.sort((a, b) => calibratedRoiOf(b) - calibratedRoiOf(a));
     }
 
     return decorated;
-  }
-
-  /**
-   * One summary for the whole result set. A per-row calibrateForecast would
-   * re-query sold outcomes N times on a 200-row catalog.
-   */
-  private async attachCalibrated(teamId: string, rows: any[]): Promise<any[]> {
-    if (!this.calibrationService) return rows;
-
-    let summary;
-    try {
-      summary = await this.calibrationService.getSummary(teamId);
-    } catch {
-      return rows;
-    }
-
-    return rows.map((row) => {
-      if (!row.analysis) return row;
-      const snapshot = (row.analysis.snapshot ?? {}) as DecisionSnapshot;
-      return {
-        ...row,
-        calibrated: applyCalibration(
-          {
-            predictedRoi: row.analysis.roi,
-            predictedProfit: row.analysis.profit,
-            category: snapshot.category ?? row.product?.category ?? undefined,
-            aiScore: row.analysis.aiScore ?? snapshot.aiScore,
-          },
-          summary,
-        ),
-      };
-    });
   }
 
   async retryFailed(scanId: string, teamId: string, userId: string): Promise<any> {

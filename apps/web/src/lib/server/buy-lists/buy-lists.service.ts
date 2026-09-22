@@ -1,7 +1,10 @@
 import { prisma } from '@sourcetool/db';
 import { ApiError } from '../http';
+import type { CalibrationService } from '../calibration/calibration.service';
 
 export class BuyListsService {
+  constructor(private calibrationService?: CalibrationService) {}
+
   async getAll(teamId: string) {
     return prisma.buyList.findMany({
       where: { teamId },
@@ -24,7 +27,10 @@ export class BuyListsService {
       },
     });
     if (!list) throw new ApiError(404, 'Buy list not found');
-    return list;
+
+    if (!this.calibrationService) return list;
+    const items = await this.calibrationService.decorateAnalyses(teamId, list.items);
+    return { ...list, items };
   }
 
   async create(teamId: string, name: string) {

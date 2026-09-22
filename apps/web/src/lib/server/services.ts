@@ -43,6 +43,7 @@ export const productsService = new ProductsService(
   productDataChainService,
   productWatchesService,
   aiService,
+  calibrationService,
 );
 export const bulkScanService = new BulkScanService(
   productsService,
@@ -60,7 +61,7 @@ export const billingService = new BillingService();
 export const historyService = new HistoryService();
 export const alertsService = new AlertsService();
 export const analyticsService = new AnalyticsService();
-export const buyListsService = new BuyListsService();
+export const buyListsService = new BuyListsService(calibrationService);
 export const exportService = new ExportService();
 export const sourcedProductsService = new SourcedProductsService(calibrationService);
 export const savedSearchesService = new SavedSearchesService();
