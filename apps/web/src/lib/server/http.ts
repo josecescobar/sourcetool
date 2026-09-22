@@ -76,8 +76,12 @@ export async function readJson<T = Record<string, unknown>>(req: Request): Promi
   }
 }
 
-function isAllowedOrigin(origin: string | null) {
-  if (!origin) return true;
+export function isAllowedOrigin(origin: string | null) {
+  // No Origin header (same-origin navigation, curl, server-to-server) needs no
+  // CORS grant, so it is not an "allowed origin" to reflect — previously this
+  // returned true, which is a confusing default. Only the app's own origin and
+  // browser extensions (whose ids are not known at build time) are allowed.
+  if (!origin) return false;
   const webUrl = process.env.WEB_URL || 'http://localhost:3000';
   return (
     origin === webUrl ||
