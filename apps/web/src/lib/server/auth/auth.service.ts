@@ -77,7 +77,20 @@ export class AuthService {
 
   async refreshToken(refreshToken: string) {
     const payload = verifyRefreshToken(refreshToken);
-    return generateTokens(payload.sub, payload.email, payload.teamId);
+
+    // The refresh token is signed, but its claims are a snapshot from issue
+    // time. Re-check the user still exists and re-resolve current membership so
+    // a deleted user — or one removed from the team encoded in the token — can't
+    // keep minting access tokens (with a stale teamId) until expiry.
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user) throw new ApiError(401, 'Invalid refresh token');
+
+    const membership = await prisma.teamMember.findFirst({
+      where: { userId: user.id },
+      orderBy: { joinedAt: 'asc' },
+    });
+
+    return generateTokens(user.id, user.email, membership?.teamId);
   }
 
   async googleAuth(credential: string) {
