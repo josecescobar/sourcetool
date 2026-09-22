@@ -101,7 +101,7 @@ function applyCors(req: Request, response: Response) {
   return response;
 }
 
-function corsPreflight(req: Request) {
+export function corsPreflightResponse(req: Request) {
   const origin = req.headers.get('origin');
   const allowed = isAllowedOrigin(origin);
   const headers = new Headers();
@@ -118,8 +118,11 @@ function corsPreflight(req: Request) {
 
 export function handleRoute(fn: (req: Request, ctx?: any) => Promise<NextResponse | Response>) {
   return async (req: Request, ctx?: any) => {
+    // App Router does not invoke this for a real browser preflight unless the
+    // route exports OPTIONS. middleware.ts answers /api OPTIONS first; this
+    // branch covers direct calls (tests, and any route that re-exports it).
     if (req.method === 'OPTIONS') {
-      return corsPreflight(req);
+      return corsPreflightResponse(req);
     }
     try {
       return applyCors(req, await fn(req, ctx));
