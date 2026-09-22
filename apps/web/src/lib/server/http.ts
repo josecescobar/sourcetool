@@ -56,12 +56,13 @@ export function jsonError(err: unknown) {
     );
   }
 
-  const message = err instanceof Error ? err.message : 'Internal server error';
+  // Unexpected error: log the real cause server-side, but never return it to the
+  // client — messages from Prisma, third-party SDKs, etc. can leak internals.
   console.error('[api]', err);
   return NextResponse.json(
     {
       success: false,
-      error: { code: 'ERROR', message },
+      error: { code: 'ERROR', message: 'Internal server error' },
     },
     { status: 500 },
   );
