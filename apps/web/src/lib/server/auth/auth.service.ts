@@ -1,10 +1,20 @@
 import { OAuth2Client } from 'google-auth-library';
+import {
+  validateEmail,
+  validatePassword,
+  validateRequiredString,
+} from '@sourcetool/shared';
 import { prisma } from '@sourcetool/db';
 import { EmailService } from '../email/email.service';
 import { generateToken, hashToken } from './utils/token.util';
 import { ApiError } from '../http';
 import { comparePassword, generateTokens, hashPassword, verifyRefreshToken } from './jwt';
 import { runAfter } from '../after';
+
+/** Throw a 400 when a validator returned an error message. */
+function assertValid(error: string | null) {
+  if (error) throw new ApiError(400, error);
+}
 
 export class AuthService {
   private googleClient: OAuth2Client;
@@ -14,6 +24,10 @@ export class AuthService {
   }
 
   async register(email: string, password: string, name?: string) {
+    assertValid(validateEmail(email));
+    assertValid(validatePassword(password));
+    email = email.trim();
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new ApiError(409, 'Email already registered');
 
@@ -42,6 +56,11 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
+    // Presence/type checks only — never reveal password rules on login.
+    assertValid(validateEmail(email));
+    assertValid(validateRequiredString(password, 'Password'));
+    email = email.trim();
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user?.passwordHash) throw new ApiError(401, 'Invalid credentials');
 
@@ -150,6 +169,10 @@ export class AuthService {
   }
 
   async verifyEmail(email: string, token: string) {
+    assertValid(validateEmail(email));
+    assertValid(validateRequiredString(token, 'Token'));
+    email = email.trim();
+
     const record = await prisma.verificationToken.findFirst({
       where: {
         identifier: email,
@@ -176,6 +199,9 @@ export class AuthService {
   // ─── Password Reset ──────────────────────────────────────────────
 
   async forgotPassword(email: string) {
+    assertValid(validateEmail(email));
+    email = email.trim();
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     // Always return generic message to prevent email enumeration
@@ -202,6 +228,11 @@ export class AuthService {
   }
 
   async resetPassword(email: string, token: string, password: string) {
+    assertValid(validateEmail(email));
+    assertValid(validateRequiredString(token, 'Token'));
+    assertValid(validatePassword(password));
+    email = email.trim();
+
     const record = await prisma.verificationToken.findFirst({
       where: {
         identifier: email,

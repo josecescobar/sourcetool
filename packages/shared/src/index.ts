@@ -14,6 +14,7 @@ export * from './constants/fee-categories';
 
 // Utils
 export * from './utils/asin-validator';
+export * from './utils/auth-validator';
 export * from './utils/upc-validator';
 export * from './utils/identifier-detector';
 export * from './utils/math-expression-parser';
