@@ -4,7 +4,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-pnpm --filter @sourcetool/db run db:generate
+# @sourcetool/db's package entry is dist/ (gitignored). prisma generate alone
+# leaves that missing, and `next build` then fails with
+# "Can't resolve '@sourcetool/db'". The package build generates the client
+# and compiles dist/.
+pnpm --filter @sourcetool/db run build
 
 # Next.js file tracing looks for the query engine at /var/task/generated/client
 # on Vercel. Copy it next to the web app so outputFileTracingIncludes can pack it.
