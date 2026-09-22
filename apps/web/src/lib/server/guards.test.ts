@@ -8,7 +8,8 @@ vi.mock('@sourcetool/db', () => ({
   prisma: { subscription, usageRecord, teamMember },
 }));
 
-const { enforceBulkScanRowLimit, enforcePlanLimit, planAllowsAi } = await import('./guards');
+const { enforceBulkScanRowLimit, enforcePlanLimit, planAllowsAi, rateLimitForgotPassword } =
+  await import('./guards');
 
 const TEAM = 'team-1';
 
@@ -80,6 +81,37 @@ describe('export gating matches the advertised plans', () => {
 
     onPlan('PROFESSIONAL');
     await expect(enforcePlanLimit(TEAM, 'export')).resolves.toBeUndefined();
+  });
+});
+
+describe('rateLimitForgotPassword', () => {
+  it('allows requests up to the limit, then throws 429', () => {
+    const key = `k-${Math.random()}`;
+    expect(() => rateLimitForgotPassword(key, 3, 60_000)).not.toThrow();
+    expect(() => rateLimitForgotPassword(key, 3, 60_000)).not.toThrow();
+    expect(() => rateLimitForgotPassword(key, 3, 60_000)).not.toThrow();
+    expect(() => rateLimitForgotPassword(key, 3, 60_000)).toThrow(/Too many requests/);
+  });
+
+  it('resets after the window elapses', () => {
+    vi.useFakeTimers();
+    try {
+      const key = `k-${Math.random()}`;
+      rateLimitForgotPassword(key, 1, 1_000);
+      expect(() => rateLimitForgotPassword(key, 1, 1_000)).toThrow(/Too many requests/);
+      vi.advanceTimersByTime(1_001);
+      expect(() => rateLimitForgotPassword(key, 1, 1_000)).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps separate counters per key', () => {
+    const a = `a-${Math.random()}`;
+    const b = `b-${Math.random()}`;
+    rateLimitForgotPassword(a, 1, 60_000);
+    expect(() => rateLimitForgotPassword(b, 1, 60_000)).not.toThrow();
+    expect(() => rateLimitForgotPassword(a, 1, 60_000)).toThrow(/Too many requests/);
   });
 });
 
