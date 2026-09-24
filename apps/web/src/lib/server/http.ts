@@ -56,12 +56,13 @@ export function jsonError(err: unknown) {
     );
   }
 
-  const message = err instanceof Error ? err.message : 'Internal server error';
+  // Unexpected error: log the real cause server-side, but never return it to the
+  // client — messages from Prisma, third-party SDKs, etc. can leak internals.
   console.error('[api]', err);
   return NextResponse.json(
     {
       success: false,
-      error: { code: 'ERROR', message },
+      error: { code: 'ERROR', message: 'Internal server error' },
     },
     { status: 500 },
   );
@@ -75,8 +76,12 @@ export async function readJson<T = Record<string, unknown>>(req: Request): Promi
   }
 }
 
-function isAllowedOrigin(origin: string | null) {
-  if (!origin) return true;
+export function isAllowedOrigin(origin: string | null) {
+  // No Origin header (same-origin navigation, curl, server-to-server) needs no
+  // CORS grant, so it is not an "allowed origin" to reflect — previously this
+  // returned true, which is a confusing default. Only the app's own origin and
+  // browser extensions (whose ids are not known at build time) are allowed.
+  if (!origin) return false;
   const webUrl = process.env.WEB_URL || 'http://localhost:3000';
   return (
     origin === webUrl ||
@@ -96,7 +101,7 @@ function applyCors(req: Request, response: Response) {
   return response;
 }
 
-function corsPreflight(req: Request) {
+export function corsPreflightResponse(req: Request) {
   const origin = req.headers.get('origin');
   const allowed = isAllowedOrigin(origin);
   const headers = new Headers();
@@ -113,8 +118,11 @@ function corsPreflight(req: Request) {
 
 export function handleRoute(fn: (req: Request, ctx?: any) => Promise<NextResponse | Response>) {
   return async (req: Request, ctx?: any) => {
+    // App Router does not invoke this for a real browser preflight unless the
+    // route exports OPTIONS. middleware.ts answers /api OPTIONS first; this
+    // branch covers direct calls (tests, and any route that re-exports it).
     if (req.method === 'OPTIONS') {
-      return corsPreflight(req);
+      return corsPreflightResponse(req);
     }
     try {
       return applyCors(req, await fn(req, ctx));

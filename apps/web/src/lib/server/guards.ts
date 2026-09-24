@@ -205,10 +205,29 @@ export async function enforceBulkScanRowLimit(teamId: string | undefined, rowCou
   }
 }
 
+/**
+ * Best-effort forgot-password throttle kept in process memory. On serverless
+ * (Vercel) each warm instance has its own map, so this is a speed bump, not a
+ * hard guarantee — back it with a shared store (e.g. Redis/Upstash) for that.
+ * Entries are evicted on expiry and the map is capped so spoofed keys cannot
+ * grow it without bound.
+ */
+const FORGOT_PASSWORD_MAX_KEYS = 10_000;
 const forgotPasswordHits = new Map<string, { count: number; resetAt: number }>();
 
 export function rateLimitForgotPassword(key: string, limit = 3, windowMs = 60_000) {
   const now = Date.now();
+
+  if (forgotPasswordHits.size >= FORGOT_PASSWORD_MAX_KEYS) {
+    for (const [k, v] of forgotPasswordHits) {
+      if (now > v.resetAt) forgotPasswordHits.delete(k);
+    }
+    // If everything is still live, reset rather than leak memory unbounded.
+    if (forgotPasswordHits.size >= FORGOT_PASSWORD_MAX_KEYS) {
+      forgotPasswordHits.clear();
+    }
+  }
+
   const current = forgotPasswordHits.get(key);
   if (!current || now > current.resetAt) {
     forgotPasswordHits.set(key, { count: 1, resetAt: now + windowMs });
