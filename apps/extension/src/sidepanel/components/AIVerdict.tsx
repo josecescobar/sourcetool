@@ -11,6 +11,7 @@ interface Props {
     reviewCount?: number;
     listings?: Array<{ currentPrice?: number }>;
   };
+  analysisId?: string;
 }
 
 const verdictColors: Record<string, string> = {
@@ -29,7 +30,7 @@ const verdictBg: Record<string, string> = {
   STRONG_PASS: 'bg-red-50 border-red-200',
 };
 
-export function AIVerdict({ product }: Props) {
+export function AIVerdict({ product, analysisId }: Props) {
   const [verdict, setVerdict] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +40,7 @@ export function AIVerdict({ product }: Props) {
       const response = await chrome.runtime.sendMessage({
         type: 'GET_DEAL_SCORE',
         data: {
+          analysisId,
           product: {
             title: product.title,
             asin: product.asin,

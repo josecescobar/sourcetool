@@ -74,13 +74,13 @@ export class SourcedProductsService {
 
     // Sellers record purchases without thinking about which analysis drove
     // them, so infer the link rather than leaving the loop open.
-    const analysisId =
-      input.analysisId ??
-      (await this.calibrationService.findLikelyAnalysisId(
-        teamId,
-        input.productId,
-        purchaseDate,
-      ));
+    const analysisId = input.analysisId
+      ? await this.requireOwnedAnalysis(input.analysisId, teamId, input.productId)
+      : await this.calibrationService.findLikelyAnalysisId(
+          teamId,
+          input.productId,
+          purchaseDate,
+        );
 
     return prisma.sourcedProduct.create({
       data: {
@@ -158,5 +158,25 @@ export class SourcedProductsService {
 
     await prisma.sourcedProduct.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  /**
+   * A client-supplied analysisId is only a hint. Without this check, knowing
+   * another team's analysis id is enough to attach it to a sold row and leak
+   * that team's forecast through /api/calibration.
+   */
+  private async requireOwnedAnalysis(
+    analysisId: string,
+    teamId: string,
+    productId: string,
+  ): Promise<string> {
+    const analysis = await prisma.productAnalysis.findFirst({
+      where: { id: analysisId, teamId, productId },
+      select: { id: true },
+    });
+    if (!analysis) {
+      throw new ApiError(400, 'Analysis not found for this team and product');
+    }
+    return analysis.id;
   }
 }
