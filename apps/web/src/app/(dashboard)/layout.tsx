@@ -55,9 +55,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   });
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh flex-col bg-gray-50 md:flex-row">
+      <header className="flex items-center gap-3 border-b bg-white px-4 py-3 md:hidden">
+        <Link href="/products" className="flex shrink-0 items-center gap-2">
+          <Package className="h-5 w-5 text-primary" />
+          <span className="font-bold text-primary">SourceTool</span>
+        </Link>
+        <nav className="flex flex-1 gap-1 overflow-x-auto">
+          {navItems.map(({ href, label }) => (
+            <Link key={href} href={href}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                pathname === href ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+              }`}>
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <button onClick={logout} aria-label="Log out" className="shrink-0 text-muted-foreground">
+          <LogOut className="h-4 w-4" />
+        </button>
+      </header>
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-white flex flex-col">
+      <aside className="hidden w-64 flex-col border-r bg-white md:flex">
         <div className="p-6">
           <Link href="/products" className="flex items-center gap-2">
             <Package className="h-6 w-6 text-primary" />
@@ -94,7 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 md:p-8">
         {user && !user.emailVerified && !user.googleId && <EmailVerificationBanner />}
         {children}
       </main>
