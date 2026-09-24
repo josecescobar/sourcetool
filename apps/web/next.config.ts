@@ -27,6 +27,17 @@ const nextConfig: NextConfig = {
     'ws',
     'bcryptjs',
   ],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Google's sign-in popup stays blank on iOS Safari without this.
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

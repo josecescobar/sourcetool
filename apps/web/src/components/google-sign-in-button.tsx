@@ -16,6 +16,8 @@ export function GoogleSignInButton() {
       )}
       <div className="flex justify-center">
         <GoogleLogin
+          width="320"
+          useOneTap={false}
           onSuccess={async (response) => {
             setError('');
             if (!response.credential) {
