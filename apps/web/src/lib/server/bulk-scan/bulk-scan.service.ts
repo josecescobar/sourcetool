@@ -2,6 +2,7 @@ import { prisma } from '@sourcetool/db';
 import { ProductsService } from '../products/products.service';
 import { AnalysisService } from '../analysis/analysis.service';
 import { AiService } from '../ai/ai.service';
+import type { CalibrationService } from '../calibration/calibration.service';
 import type { Marketplace, FulfillmentType } from '@sourcetool/shared';
 import { ApiError } from '../http';
 import { createLogger } from '../logger';
@@ -22,6 +23,7 @@ export class BulkScanService {
     private productsService: ProductsService,
     private analysisService: AnalysisService,
     private aiService: AiService,
+    private calibrationService?: CalibrationService,
   ) {}
 
   async create(teamId: string, userId: string, input: CreateBulkScanInput): Promise<any> {
@@ -89,7 +91,15 @@ export class BulkScanService {
       orderBy,
     });
 
-    return rows;
+    const decorated = this.calibrationService
+      ? await this.calibrationService.decorateAnalyses(teamId, rows)
+      : rows;
+
+    if (sort === 'calibrated') {
+      decorated.sort((a, b) => calibratedRoiOf(b) - calibratedRoiOf(a));
+    }
+
+    return decorated;
   }
 
   async retryFailed(scanId: string, teamId: string, userId: string): Promise<any> {
@@ -362,4 +372,8 @@ export class BulkScanService {
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+function calibratedRoiOf(row: { calibrated?: { calibratedRoi?: number }; analysis?: { roi?: number } | null }) {
+  return row.calibrated?.calibratedRoi ?? row.analysis?.roi ?? Number.NEGATIVE_INFINITY;
 }

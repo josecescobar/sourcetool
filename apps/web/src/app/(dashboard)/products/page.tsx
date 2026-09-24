@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Search, List, Bookmark, X, Clock, Columns3 } from 'lucide-react';
 import { AddToBuyListDialog } from '@/components/add-to-buy-list-dialog';
+import { CalibrationCallout } from '@/components/calibration-callout';
 import { useSavedSearches } from '@/hooks/useSavedSearches';
 
 export default function ProductsPage() {
@@ -126,7 +127,12 @@ export default function ProductsPage() {
           buyBoxPrice: listing?.buyBoxPrice,
         },
       });
-      if (data.success) setVerdict(data.data);
+      if (data.success) {
+        setVerdict(data.data);
+        if (data.data.calibrated) {
+          setAnalysis((prev: any) => (prev ? { ...prev, calibrated: data.data.calibrated } : prev));
+        }
+      }
     } catch {
       setError('AI scoring failed');
     }
@@ -196,7 +202,7 @@ export default function ProductsPage() {
         <AddToBuyListDialog
           open={buyListOpen}
           onOpenChange={setBuyListOpen}
-          items={[{ productId: product.id, analysisId: analysis?.id }]}
+          items={[{ productId: product.id, analysisId: analysis?.analysisId }]}
           onSuccess={() => {
             setBuyListMessage('Added to buy list');
             setTimeout(() => setBuyListMessage(''), 3000);
@@ -311,6 +317,7 @@ export default function ProductsPage() {
                   <div className="text-sm font-medium">${analysis.breakeven?.toFixed(2)}</div>
                 </div>
               </div>
+              <CalibrationCallout forecast={analysis.calibrated} />
               <div className="mt-4">
                 {!verdict ? (
                   <button

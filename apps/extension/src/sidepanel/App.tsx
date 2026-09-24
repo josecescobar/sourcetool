@@ -39,6 +39,8 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('calculator');
   const [showBuyList, setShowBuyList] = useState(false);
   const [analysisId, setAnalysisId] = useState<string | undefined>();
+  const [lastAnalysis, setLastAnalysis] = useState<any>(null);
+  const [scoreCalibrated, setScoreCalibrated] = useState<any>(null);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'CHECK_AUTH' }).then((res) => {
@@ -52,6 +54,9 @@ export function App() {
     const listener = (message: any) => {
       if (message.type === 'PRODUCT_DATA') {
         setProduct(message.data);
+        setLastAnalysis(null);
+        setScoreCalibrated(null);
+        setAnalysisId(undefined);
       }
     };
     chrome.runtime.onMessage.addListener(listener);
@@ -119,12 +124,25 @@ export function App() {
       </div>
 
       {activeTab === 'calculator' && (
-        <ProfitCalculator product={product} onAnalyzed={(id) => setAnalysisId(id)} />
+        <ProfitCalculator
+          product={product}
+          calibratedOverride={scoreCalibrated}
+          onAnalyzed={(id, result) => {
+            setAnalysisId(id);
+            setLastAnalysis(result);
+            setScoreCalibrated(result?.calibrated ?? null);
+          }}
+        />
       )}
       {activeTab === 'history' && <HistoryTab product={product} />}
       {activeTab === 'alerts' && <AlertsTab product={product} />}
 
-      <AIVerdict product={product} analysisId={analysisId} />
+      <AIVerdict
+        product={product}
+        analysisId={analysisId}
+        analysis={lastAnalysis}
+        onCalibrated={(forecast) => setScoreCalibrated(forecast)}
+      />
     </div>
   );
 }

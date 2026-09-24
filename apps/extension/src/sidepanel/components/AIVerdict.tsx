@@ -9,9 +9,20 @@ interface Props {
     bsrCategory?: string;
     rating?: number;
     reviewCount?: number;
+    category?: string;
+    brand?: string;
     listings?: Array<{ currentPrice?: number }>;
   };
   analysisId?: string;
+  analysis?: {
+    buyPrice?: number;
+    sellPrice?: number;
+    profit?: number;
+    roi?: number;
+    margin?: number;
+    fees?: { totalFees?: number };
+  } | null;
+  onCalibrated?: (forecast: unknown) => void;
 }
 
 const verdictColors: Record<string, string> = {
@@ -30,7 +41,7 @@ const verdictBg: Record<string, string> = {
   STRONG_PASS: 'bg-red-50 border-red-200',
 };
 
-export function AIVerdict({ product, analysisId }: Props) {
+export function AIVerdict({ product, analysisId, analysis, onCalibrated }: Props) {
   const [verdict, setVerdict] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,23 +55,26 @@ export function AIVerdict({ product, analysisId }: Props) {
           product: {
             title: product.title,
             asin: product.asin,
+            category: product.category,
+            brand: product.brand,
             bsr: product.bsr,
             bsrCategory: product.bsrCategory,
             rating: product.rating,
             reviewCount: product.reviewCount,
           },
           profitability: {
-            buyPrice: 0,
-            sellPrice: product.listings?.[0]?.currentPrice ?? product.price ?? 0,
-            profit: 0,
-            roi: 0,
-            margin: 0,
-            fees: 0,
+            buyPrice: analysis?.buyPrice ?? 0,
+            sellPrice: analysis?.sellPrice ?? product.listings?.[0]?.currentPrice ?? product.price ?? 0,
+            profit: analysis?.profit ?? 0,
+            roi: analysis?.roi ?? 0,
+            margin: analysis?.margin ?? 0,
+            fees: analysis?.fees?.totalFees ?? 0,
           },
           competition: {},
         },
       });
       setVerdict(response?.data);
+      if (response?.data?.calibrated) onCalibrated?.(response.data.calibrated);
     } catch (err) {
       console.error('AI verdict error:', err);
     }

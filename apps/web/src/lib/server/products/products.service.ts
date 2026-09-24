@@ -6,6 +6,7 @@ import { STALENESS_THRESHOLD_MS } from '../integrations/rainforest/rainforest.co
 import type { ExternalProductData } from '../integrations/interfaces/product-data-provider.interface';
 import { ProductWatchesService } from '../product-watches/product-watches.service';
 import { AiService } from '../ai/ai.service';
+import type { CalibrationService } from '../calibration/calibration.service';
 import { isOversizeDimensions } from '../analysis/fee-tables/amazon-storage-fees';
 import { ApiError } from '../http';
 import { createLogger } from '../logger';
@@ -18,6 +19,7 @@ export class ProductsService {
     private productDataChain: ProductDataChainService,
     private productWatches: ProductWatchesService,
     private aiService: AiService,
+    private calibrationService?: CalibrationService,
   ) {}
 
   /**
@@ -159,7 +161,11 @@ export class ProductsService {
       }),
     );
 
-    return { products };
+    const decorated = this.calibrationService
+      ? await this.calibrationService.decorateAnalyses(teamId, products)
+      : products;
+
+    return { products: decorated };
   }
 
   // ─── Private helpers ──────────────────────────────────────────────

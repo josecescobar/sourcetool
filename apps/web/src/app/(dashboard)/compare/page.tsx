@@ -284,6 +284,48 @@ function CompareContent() {
                   winnerClass={winnerClass}
                   colorFn={(v) => v != null ? (v >= 30 ? 'text-green-600' : v >= 0 ? 'text-yellow-600' : 'text-red-600') : ''}
                 />
+                {products.some((p) => p.calibrated?.applied) && (
+                  <>
+                    <CompareRow
+                      label="Calibrated Profit"
+                      values={products.map((p) =>
+                        p.calibrated?.applied ? p.calibrated.calibratedProfit : null,
+                      )}
+                      format={formatCurrency}
+                      bestIndex={getBestIndex(
+                        products.map((p) =>
+                          p.calibrated?.applied ? p.calibrated.calibratedProfit : null,
+                        ),
+                        'highest',
+                      )}
+                      winnerClass={winnerClass}
+                      colorFn={(v) => (v != null ? (v >= 0 ? 'text-amber-700' : 'text-red-600') : '')}
+                    />
+                    <CompareRow
+                      label="Calibrated ROI"
+                      values={products.map((p) =>
+                        p.calibrated?.applied ? p.calibrated.calibratedRoi : null,
+                      )}
+                      format={(v) => (v != null ? `${v.toFixed(1)}%` : '—')}
+                      bestIndex={getBestIndex(
+                        products.map((p) =>
+                          p.calibrated?.applied ? p.calibrated.calibratedRoi : null,
+                        ),
+                        'highest',
+                      )}
+                      winnerClass={winnerClass}
+                      colorFn={(v) =>
+                        v != null
+                          ? v >= 30
+                            ? 'text-green-600'
+                            : v >= 0
+                              ? 'text-amber-700'
+                              : 'text-red-600'
+                          : ''
+                      }
+                    />
+                  </>
+                )}
                 <CompareRow
                   label="Margin"
                   values={products.map((p) => p.analysis?.margin)}

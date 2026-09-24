@@ -135,6 +135,45 @@ describe('CalibrationService.getResolvedOutcomes', () => {
   });
 });
 
+describe('CalibrationService.decorateAnalyses', () => {
+  it('uses one outcomes query for the whole set and skips rows without an analysis', async () => {
+    sourcedProduct.findMany.mockResolvedValue(
+      Array.from({ length: 6 }, (_, i) => soldRow({ id: `sp-${i}` })),
+    );
+
+    const rows = await new CalibrationService().decorateAnalyses(TEAM, [
+      {
+        id: 'a',
+        analysis: { roi: 60, profit: 12, snapshot: { category: 'Toys & Games' } },
+        product: { category: 'Toys & Games' },
+      },
+      { id: 'b', analysis: null, product: null },
+    ]);
+
+    expect(sourcedProduct.findMany).toHaveBeenCalledTimes(1);
+    expect(rows[0]?.calibrated?.applied).toBe(true);
+    expect(rows[1]?.calibrated).toBeUndefined();
+  });
+
+  it('leaves rows untouched when the outcomes query fails', async () => {
+    sourcedProduct.findMany.mockRejectedValue(new Error('db timeout'));
+    const input = [{ id: 'a', analysis: { roi: 20, profit: 4, snapshot: {} }, product: {} }];
+
+    await expect(new CalibrationService().decorateAnalyses(TEAM, input)).resolves.toEqual(input);
+  });
+});
+
+describe('CalibrationService.getSummary', () => {
+  it('builds a summary from the team\'s resolved outcomes', async () => {
+    sourcedProduct.findMany.mockResolvedValue([soldRow(), soldRow({ id: 'sp-2' })]);
+
+    const summary = await new CalibrationService().getSummary(TEAM);
+
+    expect(summary.sampleSize).toBe(2);
+    expect(summary.overall).not.toBeNull();
+  });
+});
+
 describe('CalibrationService.getReport', () => {
   it('counts sold units that cannot be scored so the gap is explainable', async () => {
     sourcedProduct.findMany.mockResolvedValue([soldRow()]);

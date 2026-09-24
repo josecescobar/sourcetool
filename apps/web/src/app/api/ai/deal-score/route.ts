@@ -27,10 +27,12 @@ export const POST = handleRoute(async (req) => {
   const score = await aiService.getDealScore({ ...input, calibration });
 
   // Persist onto the analysis when the client tells us which one it scored.
-  // A missing or foreign id must not fail the score itself.
+  // A missing or foreign id must not fail the score itself. The persist path
+  // also re-applies calibration so the score band can adjust the forecast.
+  let calibrated = undefined;
   if (analysisId) {
     try {
-      await analysisService.recordVerdict(analysisId, teamId, score, {
+      const persisted = await analysisService.recordVerdict(analysisId, teamId, score, {
         category: input.product?.category,
         brand: input.product?.brand,
         bsr: input.product?.bsr,
@@ -40,10 +42,24 @@ export const POST = handleRoute(async (req) => {
         rating: input.product?.rating,
         reviewCount: input.product?.reviewCount,
       });
+      calibrated = persisted.calibrated;
     } catch (err) {
       logger.warn(`Could not persist verdict on ${analysisId}: ${(err as Error).message}`);
     }
   }
 
-  return jsonOk(score);
+  if (!calibrated) {
+    try {
+      calibrated = await calibrationService.calibrateForecast(teamId, {
+        predictedRoi: input.profitability.roi,
+        predictedProfit: input.profitability.profit,
+        category: input.product?.category,
+        aiScore: score.score,
+      });
+    } catch (err) {
+      logger.warn(`Post-score calibration unavailable: ${(err as Error).message}`);
+    }
+  }
+
+  return jsonOk({ ...score, calibrated });
 });

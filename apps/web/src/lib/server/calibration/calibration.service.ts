@@ -3,6 +3,7 @@ import type {
   CalibratedForecast,
   CalibrationSummary,
   DealVerdict,
+  DecisionSnapshot,
   ResolvedOutcome,
 } from '@sourcetool/shared';
 import { applyCalibration, buildCalibrationBrief, buildCalibrationSummary } from './calibration.engine';
@@ -71,6 +72,11 @@ export class CalibrationService {
     return { ...buildCalibrationSummary(outcomes), unlinkedSoldCount };
   }
 
+  /** One summary for many forecasts — bulk scan must not N+1 the outcomes query. */
+  async getSummary(teamId: string): Promise<CalibrationSummary> {
+    return buildCalibrationSummary(await this.getResolvedOutcomes(teamId));
+  }
+
   async calibrateForecast(
     teamId: string,
     forecast: {
@@ -80,8 +86,50 @@ export class CalibrationService {
       aiScore?: number;
     },
   ): Promise<CalibratedForecast> {
-    const summary = buildCalibrationSummary(await this.getResolvedOutcomes(teamId));
-    return applyCalibration(forecast, summary);
+    return applyCalibration(forecast, await this.getSummary(teamId));
+  }
+
+  /**
+   * Stamp a calibrated forecast onto every row that has an analysis, using one
+   * team summary. Compare, buy-list, and bulk scan all go through here so a
+   * 200-row catalog never N+1s sold outcomes.
+   */
+  async decorateAnalyses<
+    T extends {
+      analysis?: {
+        roi: number;
+        profit: number;
+        aiScore?: number | null;
+        snapshot?: unknown;
+      } | null;
+      product?: { category?: string | null } | null;
+    },
+  >(teamId: string, rows: T[]): Promise<Array<T & { calibrated?: CalibratedForecast }>> {
+    if (rows.length === 0) return rows;
+
+    let summary: CalibrationSummary;
+    try {
+      summary = await this.getSummary(teamId);
+    } catch {
+      return rows;
+    }
+
+    return rows.map((row) => {
+      if (!row.analysis) return row;
+      const snapshot = (row.analysis.snapshot ?? {}) as DecisionSnapshot;
+      return {
+        ...row,
+        calibrated: applyCalibration(
+          {
+            predictedRoi: row.analysis.roi,
+            predictedProfit: row.analysis.profit,
+            category: snapshot.category ?? row.product?.category ?? undefined,
+            aiScore: row.analysis.aiScore ?? snapshot.aiScore,
+          },
+          summary,
+        ),
+      };
+    });
   }
 
   /** Prompt context for the deal scorer, or undefined when history is too thin. */
@@ -89,8 +137,7 @@ export class CalibrationService {
     teamId: string,
     context: { category?: string } = {},
   ): Promise<string | undefined> {
-    const summary = buildCalibrationSummary(await this.getResolvedOutcomes(teamId));
-    return buildCalibrationBrief(summary, context);
+    return buildCalibrationBrief(await this.getSummary(teamId), context);
   }
 
   /**
