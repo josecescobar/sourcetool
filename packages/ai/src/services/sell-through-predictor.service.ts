@@ -1,9 +1,6 @@
 import type { SellThroughPrediction } from '@sourcetool/shared';
-import { generateWithClaude } from '../providers/anthropic.provider';
-import { generateWithOpenAI } from '../providers/openai.provider';
-import { generateWithVercelGateway } from '../providers/vercel-gateway.provider';
 import { SELL_THROUGH_SYSTEM_PROMPT, buildSellThroughMessage } from '../prompts/verdict.prompt';
-import type { AIProvider } from './deal-scoring.service';
+import { callEnabledProvider, type AIProvider, type ProviderDeps } from '../provider-switch';
 
 export interface SellThroughInput {
   title: string;
@@ -18,45 +15,20 @@ export interface SellThroughInput {
 
 export async function predictSellThrough(
   input: SellThroughInput,
-  provider: AIProvider = 'anthropic'
+  _provider?: AIProvider,
+  deps?: ProviderDeps,
 ): Promise<SellThroughPrediction> {
   const userMessage = buildSellThroughMessage(input);
-
-  let responseText: string;
-
-  try {
-    if (provider === 'anthropic') {
-      responseText = await generateWithClaude(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.3,
-        maxTokens: 256,
-      });
-    } else if (provider === 'vercel') {
-      responseText = await generateWithVercelGateway(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.3,
-        maxTokens: 256,
-      });
-    } else {
-      responseText = await generateWithOpenAI(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.3,
-        maxTokens: 256,
-      });
-    }
-  } catch (error) {
-    // If the Gateway call fails, try Anthropic before giving up to the heuristic.
-    if (provider === 'vercel' && process.env.ANTHROPIC_API_KEY) {
-      try {
-        responseText = await generateWithClaude(SELL_THROUGH_SYSTEM_PROMPT, userMessage, {
-          temperature: 0.3,
-          maxTokens: 256,
-        });
-      } catch {
-        return heuristicSellThrough(input);
-      }
-    } else {
-      return heuristicSellThrough(input);
-    }
-  }
-
+  const responseText = await callEnabledProvider({
+    service: 'predictSellThrough',
+    systemPrompt: SELL_THROUGH_SYSTEM_PROMPT,
+    userMessage,
+    temperature: 0.3,
+    maxTokens: 256,
+    env: deps?.env,
+    fns: deps?.fns,
+  });
+  if (responseText == null) return heuristicSellThrough(input);
   return parseSellThroughResponse(responseText, input);
 }
 

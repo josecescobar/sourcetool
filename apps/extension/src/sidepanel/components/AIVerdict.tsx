@@ -44,6 +44,7 @@ const verdictBg: Record<string, string> = {
 export function AIVerdict({ product, analysisId, analysis, onCalibrated }: Props) {
   const [verdict, setVerdict] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [aiOff, setAiOff] = useState(false);
 
   const getVerdict = async () => {
     setLoading(true);
@@ -73,8 +74,15 @@ export function AIVerdict({ product, analysisId, analysis, onCalibrated }: Props
           competition: {},
         },
       });
-      setVerdict(response?.data);
-      if (response?.data?.calibrated) onCalibrated?.(response.data.calibrated);
+      const payload = response?.data;
+      if (payload?.aiOff) {
+        setAiOff(true);
+        setVerdict(null);
+      } else {
+        setAiOff(false);
+        setVerdict(payload);
+        if (response?.data?.calibrated) onCalibrated?.(response.data.calibrated);
+      }
     } catch (err) {
       console.error('AI verdict error:', err);
     }
@@ -83,7 +91,7 @@ export function AIVerdict({ product, analysisId, analysis, onCalibrated }: Props
 
   return (
     <div className="mt-3">
-      {!verdict ? (
+      {!aiOff && !verdict ? (
         <button
           onClick={getVerdict}
           disabled={loading}
@@ -91,6 +99,8 @@ export function AIVerdict({ product, analysisId, analysis, onCalibrated }: Props
         >
           {loading ? 'Analyzing...' : 'Get AI Verdict'}
         </button>
+      ) : aiOff ? (
+        <p className="text-sm text-muted-foreground">AI verdict is off</p>
       ) : (
         <div className={`rounded-lg border p-3 ${verdictBg[verdict.verdict] || 'bg-muted'}`}>
           <div className="flex items-center justify-between mb-2">

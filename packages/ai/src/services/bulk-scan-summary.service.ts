@@ -1,8 +1,5 @@
-import { generateWithClaude } from '../providers/anthropic.provider';
-import { generateWithOpenAI } from '../providers/openai.provider';
-import { generateWithVercelGateway } from '../providers/vercel-gateway.provider';
 import { BULK_SCAN_SUMMARY_SYSTEM_PROMPT, buildBulkScanSummaryMessage } from '../prompts/bulk-scan-summary.prompt';
-import type { AIProvider } from './deal-scoring.service';
+import { callEnabledProvider, type AIProvider, type ProviderDeps } from '../provider-switch';
 
 export interface BulkScanSummaryInput {
   fileName: string;
@@ -21,50 +18,22 @@ export interface BulkScanSummaryInput {
 
 export async function summarizeBulkScan(
   input: BulkScanSummaryInput,
-  provider: AIProvider = 'anthropic'
+  _provider?: AIProvider,
+  deps?: ProviderDeps,
 ): Promise<string> {
   const userMessage = buildBulkScanSummaryMessage(input);
-
-  try {
-    if (provider === 'anthropic') {
-      return (await generateWithClaude(BULK_SCAN_SUMMARY_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.4,
-        maxTokens: 300,
-      })).trim();
-    } else if (provider === 'vercel') {
-      return (await generateWithVercelGateway(BULK_SCAN_SUMMARY_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.4,
-        maxTokens: 300,
-      })).trim();
-    } else {
-      return (await generateWithOpenAI(BULK_SCAN_SUMMARY_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.4,
-        maxTokens: 300,
-      })).trim();
-    }
-  } catch (error) {
-    // If the Gateway call fails, try Anthropic before giving up to the heuristic.
-    if (provider === 'vercel' && process.env.ANTHROPIC_API_KEY) {
-      try {
-        return (await generateWithClaude(BULK_SCAN_SUMMARY_SYSTEM_PROMPT, userMessage, {
-          temperature: 0.4,
-          maxTokens: 300,
-        })).trim();
-      } catch {
-        return heuristicBulkScanSummary(input);
-      }
-    } else if (provider === 'anthropic' && process.env.OPENAI_API_KEY) {
-      try {
-        return (await generateWithOpenAI(BULK_SCAN_SUMMARY_SYSTEM_PROMPT, userMessage, {
-          temperature: 0.4,
-          maxTokens: 300,
-        })).trim();
-      } catch {
-        return heuristicBulkScanSummary(input);
-      }
-    }
-    return heuristicBulkScanSummary(input);
-  }
+  const responseText = await callEnabledProvider({
+    service: 'summarizeBulkScan',
+    systemPrompt: BULK_SCAN_SUMMARY_SYSTEM_PROMPT,
+    userMessage,
+    temperature: 0.4,
+    maxTokens: 300,
+    env: deps?.env,
+    fns: deps?.fns,
+  });
+  if (responseText == null) return heuristicBulkScanSummary(input);
+  const trimmed = responseText.trim();
+  return trimmed || heuristicBulkScanSummary(input);
 }
 
 function heuristicBulkScanSummary(input: BulkScanSummaryInput): string {

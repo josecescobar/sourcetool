@@ -21,6 +21,7 @@ export default function ProductsPage() {
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [verdict, setVerdict] = useState<any>(null);
   const [scoring, setScoring] = useState(false);
+  const [aiOff, setAiOff] = useState(false);
 
   const { searches, fetchSearches, saveSearch, removeSearch } = useSavedSearches();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +37,7 @@ export default function ProductsPage() {
     setProduct(null);
     setAnalysis(null);
     setVerdict(null);
+    setAiOff(false);
     setQuery(searchQuery);
     setLastSearchedQuery(searchQuery.trim());
 
@@ -70,6 +72,7 @@ export default function ProductsPage() {
     if (!product || !buyPrice) return;
     setLoading(true);
     setVerdict(null);
+    setAiOff(false);
     try {
       const data = await apiClient.post('/analysis/calculate', {
         productId: product.id,
@@ -127,10 +130,17 @@ export default function ProductsPage() {
           buyBoxPrice: listing?.buyBoxPrice,
         },
       });
-      if (data.success) {
-        setVerdict(data.data);
-        if (data.data.calibrated) {
-          setAnalysis((prev: any) => (prev ? { ...prev, calibrated: data.data.calibrated } : prev));
+      if (data.success && data.data?.aiOff) {
+        setAiOff(true);
+        setVerdict(null);
+        setError('');
+      } else {
+        setAiOff(false);
+        if (data.success) {
+          setVerdict(data.data);
+          if (data.data.calibrated) {
+            setAnalysis((prev: any) => (prev ? { ...prev, calibrated: data.data.calibrated } : prev));
+          }
         }
       }
     } catch {
@@ -319,7 +329,9 @@ export default function ProductsPage() {
               </div>
               <CalibrationCallout forecast={analysis.calibrated} />
               <div className="mt-4">
-                {!verdict ? (
+                {aiOff ? (
+                  <p className="text-sm text-muted-foreground">AI verdict is off</p>
+                ) : !verdict ? (
                   <button
                     onClick={handleScore}
                     disabled={scoring}
