@@ -11,10 +11,13 @@ const logger = createLogger('DealScoreRoute');
 
 export const POST = handleRoute(async (req) => {
   const { teamId } = await requireTeamRole(req, ['OWNER', 'ADMIN', 'VA']);
-  if (isAIVerdictOff()) {
+  // Plan gate first. Unpaid plans must get the upgrade error, not a successful
+  // aiOff status. Skip the usage increment when no verdict will run.
+  const providerOff = isAIVerdictOff();
+  await enforcePlanLimit(teamId, 'ai_verdict', providerOff ? { recordUsage: false } : undefined);
+  if (providerOff) {
     return jsonOk({ aiOff: true, message: AI_VERDICT_OFF_MESSAGE });
   }
-  await enforcePlanLimit(teamId, 'ai_verdict');
   const { analysisId, ...input } = await readJson<DealScoreInput & { analysisId?: string }>(req);
 
   // Close the loop: score this deal against what this seller actually realizes,

@@ -83,6 +83,28 @@ describe('export gating matches the advertised plans', () => {
   });
 });
 
+describe('ai_verdict gate when the provider is off', () => {
+  it('still rejects an unpaid plan without recording usage', async () => {
+    onPlan('FREE');
+
+    await expect(
+      enforcePlanLimit(TEAM, 'ai_verdict', { recordUsage: false }),
+    ).rejects.toMatchObject({
+      body: { feature: 'ai_verdict', limit: 0 },
+    });
+    expect(usageRecord.upsert).not.toHaveBeenCalled();
+  });
+
+  it('does not record usage for an entitled plan when no verdict will run', async () => {
+    onPlan('PROFESSIONAL');
+
+    await expect(
+      enforcePlanLimit(TEAM, 'ai_verdict', { recordUsage: false }),
+    ).resolves.toBeUndefined();
+    expect(usageRecord.upsert).not.toHaveBeenCalled();
+  });
+});
+
 describe('planAllowsAi', () => {
   it('is false on plans without AI entitlement', async () => {
     onPlan('STARTER');
