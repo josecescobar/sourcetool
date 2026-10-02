@@ -1,8 +1,5 @@
-import { generateWithClaude } from '../providers/anthropic.provider';
-import { generateWithOpenAI } from '../providers/openai.provider';
-import { generateWithVercelGateway } from '../providers/vercel-gateway.provider';
 import { RISK_FLAGS_SYSTEM_PROMPT, buildRiskFlagsMessage } from '../prompts/risk-flags.prompt';
-import type { AIProvider } from './deal-scoring.service';
+import { callEnabledProvider, type AIProvider, type ProviderDeps } from '../provider-switch';
 
 export interface RiskFlagsInput {
   title: string;
@@ -25,54 +22,20 @@ export interface RiskFlags {
 
 export async function inferRiskFlags(
   input: RiskFlagsInput,
-  provider: AIProvider = 'anthropic'
+  _provider?: AIProvider,
+  deps?: ProviderDeps,
 ): Promise<RiskFlags> {
   const userMessage = buildRiskFlagsMessage(input);
-
-  let responseText: string;
-
-  try {
-    if (provider === 'anthropic') {
-      responseText = await generateWithClaude(RISK_FLAGS_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.1,
-        maxTokens: 400,
-      });
-    } else if (provider === 'vercel') {
-      responseText = await generateWithVercelGateway(RISK_FLAGS_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.1,
-        maxTokens: 400,
-      });
-    } else {
-      responseText = await generateWithOpenAI(RISK_FLAGS_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.1,
-        maxTokens: 400,
-      });
-    }
-  } catch (error) {
-    // If the Gateway call fails, try Anthropic before giving up to the heuristic.
-    if (provider === 'vercel' && process.env.ANTHROPIC_API_KEY) {
-      try {
-        responseText = await generateWithClaude(RISK_FLAGS_SYSTEM_PROMPT, userMessage, {
-          temperature: 0.1,
-          maxTokens: 400,
-        });
-      } catch {
-        return heuristicRiskFlags(input);
-      }
-    } else if (provider === 'anthropic' && process.env.OPENAI_API_KEY) {
-      try {
-        responseText = await generateWithOpenAI(RISK_FLAGS_SYSTEM_PROMPT, userMessage, {
-          temperature: 0.1,
-          maxTokens: 400,
-        });
-      } catch {
-        return heuristicRiskFlags(input);
-      }
-    } else {
-      return heuristicRiskFlags(input);
-    }
-  }
-
+  const responseText = await callEnabledProvider({
+    service: 'inferRiskFlags',
+    systemPrompt: RISK_FLAGS_SYSTEM_PROMPT,
+    userMessage,
+    temperature: 0.1,
+    maxTokens: 400,
+    env: deps?.env,
+    fns: deps?.fns,
+  });
+  if (responseText == null) return heuristicRiskFlags(input);
   try {
     return parseRiskFlagsResponse(responseText);
   } catch {

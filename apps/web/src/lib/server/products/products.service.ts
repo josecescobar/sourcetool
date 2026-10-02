@@ -6,6 +6,7 @@ import { STALENESS_THRESHOLD_MS } from '../integrations/rainforest/rainforest.co
 import type { ExternalProductData } from '../integrations/interfaces/product-data-provider.interface';
 import { ProductWatchesService } from '../product-watches/product-watches.service';
 import { AiService } from '../ai/ai.service';
+import { isAIVerdictOff } from '@sourcetool/ai';
 import type { CalibrationService } from '../calibration/calibration.service';
 import { isOversizeDimensions } from '../analysis/fee-tables/amazon-storage-fees';
 import { ApiError } from '../http';
@@ -316,7 +317,12 @@ export class ProductsService {
     }
 
     // AI-inferred: risks that need judgment from the product's text, not raw data.
-    if (!aiRiskFlags || hasAiInference) {
+    // When the provider switch is off, do not dress a keyword heuristic up as an
+    // AI alert. Rule-based alerts above still save.
+    if (!aiRiskFlags || hasAiInference || isAIVerdictOff()) {
+      if (isAIVerdictOff()) {
+        this.logger.debug('AI verdict is off; skipping risk-flag inference');
+      }
       if (alertsToCreate.length > 0) {
         await prisma.alert.createMany({ data: alertsToCreate });
       }

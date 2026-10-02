@@ -1,11 +1,18 @@
 // Providers
 export { getAnthropicClient, generateWithClaude } from './providers/anthropic.provider';
 export { getOpenAIClient, generateWithOpenAI } from './providers/openai.provider';
-// Vercel AI Gateway — OFF by default; pass provider: 'vercel' and set AI_GATEWAY_API_KEY to use it.
+// Vercel AI Gateway — paid. Used only when SOURCETOOL_AI_PROVIDER=vercel.
 export { getVercelGatewayClient, generateWithVercelGateway } from './providers/vercel-gateway.provider';
+export {
+  AI_VERDICT_OFF_MESSAGE,
+  isAIVerdictOff,
+  resolveSourceToolAIProvider,
+  type AIProvider,
+  type SourceToolAIProviderSetting,
+} from './provider-switch';
 
 // Services
-export { scoreDeal, type AIProvider } from './services/deal-scoring.service';
+export { scoreDeal } from './services/deal-scoring.service';
 export { getTrafficLight, formatVerdict, getVerdictEmoji, type TrafficLightColor } from './services/verdict-generator.service';
 export { predictSellThrough, type SellThroughInput } from './services/sell-through-predictor.service';
 export { summarizeBulkScan, type BulkScanSummaryInput } from './services/bulk-scan-summary.service';

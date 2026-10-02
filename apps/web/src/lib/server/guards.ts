@@ -69,7 +69,11 @@ async function incrementUsage(teamId: string, date: Date, field: string) {
   });
 }
 
-export async function enforcePlanLimit(teamId: string | undefined, action: PlanActionType) {
+export async function enforcePlanLimit(
+  teamId: string | undefined,
+  action: PlanActionType,
+  options?: { recordUsage?: boolean },
+) {
   if (!teamId) return;
 
   const subscription = await prisma.subscription.findUnique({ where: { teamId } });
@@ -132,7 +136,11 @@ export async function enforcePlanLimit(teamId: string | undefined, action: PlanA
           current: 0,
         });
       }
-      await incrementUsage(teamId, today, 'aiVerdictCount');
+      // Provider-off routes still need this gate, but must not count a verdict
+      // that never ran.
+      if (options?.recordUsage !== false) {
+        await incrementUsage(teamId, today, 'aiVerdictCount');
+      }
       break;
     }
     case 'export_csv': {

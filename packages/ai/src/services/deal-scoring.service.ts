@@ -1,61 +1,38 @@
 import type { DealScoreInput, DealScoreOutput } from '@sourcetool/shared';
-import { generateWithClaude } from '../providers/anthropic.provider';
-import { generateWithOpenAI } from '../providers/openai.provider';
-import { generateWithVercelGateway } from '../providers/vercel-gateway.provider';
 import { DEAL_SCORE_SYSTEM_PROMPT, buildDealScoreUserMessage } from '../prompts/deal-score.prompt';
+import {
+  callEnabledProvider,
+  resolveSourceToolAIProvider,
+  type AIProvider,
+  type ProviderDeps,
+} from '../provider-switch';
 
-// 'vercel' routes through the Vercel AI Gateway (OFF by default — pass explicitly
-// and set AI_GATEWAY_API_KEY to use it; existing callers are unaffected).
-export type AIProvider = 'anthropic' | 'openai' | 'vercel';
+export type { AIProvider };
 
 export async function scoreDeal(
   input: DealScoreInput,
-  provider: AIProvider = 'anthropic'
+  _provider?: AIProvider,
+  deps?: ProviderDeps,
 ): Promise<DealScoreOutput> {
   const userMessage = buildDealScoreUserMessage(input);
-
-  let responseText: string;
-
-  try {
-    if (provider === 'anthropic') {
-      responseText = await generateWithClaude(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.2,
-        maxTokens: 512,
-      });
-    } else if (provider === 'vercel') {
-      responseText = await generateWithVercelGateway(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.2,
-        maxTokens: 512,
-      });
-    } else {
-      responseText = await generateWithOpenAI(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.2,
-        maxTokens: 512,
-      });
-    }
-  } catch (error) {
-    // If primary provider fails and we have a fallback, try it
-    if (provider === 'vercel' && process.env.ANTHROPIC_API_KEY) {
-      responseText = await generateWithClaude(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.2,
-        maxTokens: 512,
-      });
-    } else if (provider === 'anthropic' && process.env.OPENAI_API_KEY) {
-      responseText = await generateWithOpenAI(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.2,
-        maxTokens: 512,
-      });
-    } else if (provider === 'openai' && process.env.ANTHROPIC_API_KEY) {
-      responseText = await generateWithClaude(DEAL_SCORE_SYSTEM_PROMPT, userMessage, {
-        temperature: 0.2,
-        maxTokens: 512,
-      });
-    } else {
-      throw error;
-    }
+  const responseText = await callEnabledProvider({
+    service: 'scoreDeal',
+    systemPrompt: DEAL_SCORE_SYSTEM_PROMPT,
+    userMessage,
+    temperature: 0.2,
+    maxTokens: 512,
+    env: deps?.env,
+    fns: deps?.fns,
+  });
+  if (responseText == null) {
+    const selected = resolveSourceToolAIProvider(deps?.env);
+    return heuristicDealScore(input, selected === 'off' ? 'gate-off' : 'selected-failed');
   }
-
-  return parseDealScoreResponse(responseText);
+  try {
+    return parseDealScoreResponse(responseText);
+  } catch {
+    return heuristicDealScore(input, 'malformed-response');
+  }
 }
 
 function parseDealScoreResponse(text: string): DealScoreOutput {
@@ -99,7 +76,7 @@ function parseDealScoreResponse(text: string): DealScoreOutput {
 
 function validateVerdict(verdict: string, score: number): DealScoreOutput['verdict'] {
   const validVerdicts = ['STRONG_BUY', 'BUY', 'HOLD', 'PASS', 'STRONG_PASS'] as const;
-  if (validVerdicts.includes(verdict as any)) {
+  if (validVerdicts.includes(verdict as (typeof validVerdicts)[number])) {
     return verdict as DealScoreOutput['verdict'];
   }
   // Derive from score if invalid
@@ -108,4 +85,42 @@ function validateVerdict(verdict: string, score: number): DealScoreOutput['verdi
   if (score >= 40) return 'HOLD';
   if (score >= 20) return 'PASS';
   return 'STRONG_PASS';
+}
+
+type HeuristicCause = 'gate-off' | 'selected-failed' | 'malformed-response';
+
+/** Local score used when the provider switch is off or the chosen provider fails. No network. */
+function heuristicDealScore(input: DealScoreInput, cause: HeuristicCause): DealScoreOutput {
+  const roi = input.profitability?.roi ?? 0;
+  const profit = input.profitability?.profit ?? 0;
+  let score = 50;
+  if (roi >= 50) score += 20;
+  else if (roi >= 30) score += 10;
+  else if (roi < 0) score -= 25;
+  if (profit >= 5) score += 10;
+  else if (profit < 0) score -= 15;
+  if (input.alerts?.hasIpComplaints) score -= 10;
+  if (input.alerts?.isHazmat) score -= 10;
+  if (input.alerts?.isRestricted) score -= 10;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const verdict = validateVerdict('', score);
+  const paidCallNote =
+    cause === 'gate-off'
+      ? 'No paid provider was called.'
+      : cause === 'malformed-response'
+        ? 'The selected provider returned a response that could not be parsed. No alternate provider was called.'
+        : 'The selected provider call failed. No alternate provider was called.';
+
+  return {
+    score,
+    verdict,
+    reasoning: `Heuristic score from ROI ${roi}% and profit $${profit.toFixed(2)}. ${paidCallNote}`,
+    confidence: 0.3,
+    factors: {
+      profitability: { score: Math.max(0, Math.min(100, Math.round(50 + roi / 2))), notes: 'Local ROI/profit heuristic' },
+      competition: { score: 50, notes: '' },
+      demand: { score: 50, notes: '' },
+      risk: { score: input.alerts?.hasIpComplaints || input.alerts?.isHazmat ? 20 : 70, notes: '' },
+    },
+  };
 }
