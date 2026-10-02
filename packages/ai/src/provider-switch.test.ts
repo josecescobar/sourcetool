@@ -37,23 +37,27 @@ describe('SOURCETOOL_AI_PROVIDER', () => {
     expect(resolveSourceToolAIProvider({ SOURCETOOL_AI_PROVIDER: 'claude' })).toBe('off');
   });
 
-  it('makes no provider call when off, even if a caller asks for anthropic', async () => {
-    const providers = fns();
-    const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
-    const result = await scoreDeal(dealInput, 'anthropic', {
-      env: { ANTHROPIC_API_KEY: 'should-not-be-used', OPENAI_API_KEY: 'nope' },
-      fns: providers,
-    });
+  it('makes no provider call when off or unset, even if a caller asks for anthropic', async () => {
+    for (const env of [
+      { ANTHROPIC_API_KEY: 'should-not-be-used', OPENAI_API_KEY: 'nope' },
+      { SOURCETOOL_AI_PROVIDER: 'off', ANTHROPIC_API_KEY: 'should-not-be-used', OPENAI_API_KEY: 'nope' },
+    ]) {
+      const providers = fns();
+      const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+      const result = await scoreDeal(dealInput, 'anthropic', { env, fns: providers });
 
-    expect(result.reasoning).toContain('Heuristic score');
-    expect(providers.anthropic).not.toHaveBeenCalled();
-    expect(providers.openai).not.toHaveBeenCalled();
-    expect(providers.vercel).not.toHaveBeenCalled();
-    expect(debug).toHaveBeenCalledTimes(1);
-    expect(debug.mock.calls[0]?.[0]).toContain(AI_VERDICT_OFF_MESSAGE);
+      expect(result.reasoning).toContain('Heuristic score');
+      expect(result.reasoning).toContain('No paid provider was called');
+      expect(providers.anthropic).not.toHaveBeenCalled();
+      expect(providers.openai).not.toHaveBeenCalled();
+      expect(providers.vercel).not.toHaveBeenCalled();
+      expect(debug).toHaveBeenCalledTimes(1);
+      expect(debug.mock.calls[0]?.[0]).toContain(AI_VERDICT_OFF_MESSAGE);
+      debug.mockRestore();
+    }
   });
 
-  it('falls back to the heuristic when explicit anthropic has no key', async () => {
+  it('falls back to the heuristic when the selected provider throws, without calling alternates', async () => {
     const providers = fns();
     providers.anthropic = vi.fn(async () => {
       throw new Error('ANTHROPIC_API_KEY is not set');
@@ -67,6 +71,26 @@ describe('SOURCETOOL_AI_PROVIDER', () => {
     expect(providers.openai).not.toHaveBeenCalled();
     expect(providers.vercel).not.toHaveBeenCalled();
     expect(result.reasoning).toContain('Heuristic score');
+    expect(result.reasoning).toContain('The selected provider call failed');
+    expect(result.reasoning).toContain('No alternate provider was called');
+    expect(result.reasoning).not.toContain('No paid provider was called');
+  });
+
+  it('does not claim zero paid calls when the selected provider returns malformed JSON', async () => {
+    const providers = fns();
+    providers.openai = vi.fn(async () => 'not json');
+    const result = await scoreDeal(dealInput, undefined, {
+      env: { SOURCETOOL_AI_PROVIDER: 'openai' },
+      fns: providers,
+    });
+
+    expect(providers.openai).toHaveBeenCalledTimes(1);
+    expect(providers.anthropic).not.toHaveBeenCalled();
+    expect(providers.vercel).not.toHaveBeenCalled();
+    expect(result.reasoning).toContain('Heuristic score');
+    expect(result.reasoning).toContain('could not be parsed');
+    expect(result.reasoning).toContain('No alternate provider was called');
+    expect(result.reasoning).not.toContain('No paid provider was called');
   });
 
   it('does not call a second provider when the chosen one fails', async () => {

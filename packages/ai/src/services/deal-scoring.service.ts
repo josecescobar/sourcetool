@@ -1,6 +1,11 @@
 import type { DealScoreInput, DealScoreOutput } from '@sourcetool/shared';
 import { DEAL_SCORE_SYSTEM_PROMPT, buildDealScoreUserMessage } from '../prompts/deal-score.prompt';
-import { callEnabledProvider, type AIProvider, type ProviderDeps } from '../provider-switch';
+import {
+  callEnabledProvider,
+  resolveSourceToolAIProvider,
+  type AIProvider,
+  type ProviderDeps,
+} from '../provider-switch';
 
 export type { AIProvider };
 
@@ -19,11 +24,14 @@ export async function scoreDeal(
     env: deps?.env,
     fns: deps?.fns,
   });
-  if (responseText == null) return heuristicDealScore(input);
+  if (responseText == null) {
+    const selected = resolveSourceToolAIProvider(deps?.env);
+    return heuristicDealScore(input, selected === 'off' ? 'gate-off' : 'selected-failed');
+  }
   try {
     return parseDealScoreResponse(responseText);
   } catch {
-    return heuristicDealScore(input);
+    return heuristicDealScore(input, 'malformed-response');
   }
 }
 
@@ -79,8 +87,10 @@ function validateVerdict(verdict: string, score: number): DealScoreOutput['verdi
   return 'STRONG_PASS';
 }
 
+type HeuristicCause = 'gate-off' | 'selected-failed' | 'malformed-response';
+
 /** Local score used when the provider switch is off or the chosen provider fails. No network. */
-function heuristicDealScore(input: DealScoreInput): DealScoreOutput {
+function heuristicDealScore(input: DealScoreInput, cause: HeuristicCause): DealScoreOutput {
   const roi = input.profitability?.roi ?? 0;
   const profit = input.profitability?.profit ?? 0;
   let score = 50;
@@ -94,11 +104,17 @@ function heuristicDealScore(input: DealScoreInput): DealScoreOutput {
   if (input.alerts?.isRestricted) score -= 10;
   score = Math.max(0, Math.min(100, Math.round(score)));
   const verdict = validateVerdict('', score);
+  const paidCallNote =
+    cause === 'gate-off'
+      ? 'No paid provider was called.'
+      : cause === 'malformed-response'
+        ? 'The selected provider returned a response that could not be parsed. No alternate provider was called.'
+        : 'The selected provider call failed. No alternate provider was called.';
 
   return {
     score,
     verdict,
-    reasoning: `Heuristic score from ROI ${roi}% and profit $${profit.toFixed(2)}. No paid provider was called.`,
+    reasoning: `Heuristic score from ROI ${roi}% and profit $${profit.toFixed(2)}. ${paidCallNote}`,
     confidence: 0.3,
     factors: {
       profitability: { score: Math.max(0, Math.min(100, Math.round(50 + roi / 2))), notes: 'Local ROI/profit heuristic' },
